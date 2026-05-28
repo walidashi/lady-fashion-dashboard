@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
+    background-color: #f5f4f2;
+    color: #1a1a1a;
+  }
+}
+
+@layer components {
+  .input-field {
+    @apply w-full px-4 py-2.5 rounded-lg text-sm transition-colors bg-white text-gray-900 placeholder-gray-400;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    outline: none;
+  }
+  .input-field:focus {
+    border-color: #be185d;
+    box-shadow: 0 0 0 3px rgba(190, 24, 93, 0.08);
+  }
+  .error-text {
+    @apply text-red-500 text-xs mt-1;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center bg-pink-700 hover:bg-pink-800 disabled:opacity-60 text-white font-semibold py-2.5 px-5 rounded-lg transition-colors text-sm;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center text-gray-700 font-medium py-2.5 px-5 rounded-lg transition-colors text-sm hover:bg-gray-100;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+}
