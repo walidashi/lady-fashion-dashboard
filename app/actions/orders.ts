@@ -36,11 +36,16 @@ export interface CreateOrderPayload {
   products: string
   products_total: number
   shipping_cost: number
+  total: number
   amount_paid: number
+  remaining: number
   items_count: number
   notes: string
   payment_method: string
   source: string
+  order_type: string
+  returned_products: string | null
+  returned_products_total: number
 }
 
 export async function createOrder(payload: CreateOrderPayload) {

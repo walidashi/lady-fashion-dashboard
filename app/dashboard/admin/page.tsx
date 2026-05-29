@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Order, ShippingCompany, STATUS_LABELS, OrderStatus } from '@/lib/types'
+import { Order, ShippingCompany, STATUS_LABELS, OrderStatus, OrderType, ORDER_TYPE_COLORS } from '@/lib/types'
 import { generateShippingExcel } from '@/lib/excel'
 import { printLabels } from '@/lib/printLabels'
 import { acceptOrder, shipOrder, deliverOrder, cancelOrder, bulkUpdateStatus } from '@/app/actions/orders'
@@ -51,6 +51,7 @@ export default function AdminOrdersPage() {
   const [actionError, setActionError] = useState('')
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false)
   const [sourceFilter, setSourceFilter] = useState('all')
+  const [orderTypeFilter, setOrderTypeFilter] = useState('all')
   const [companyFilter, setCompanyFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -87,11 +88,12 @@ export default function AdminOrdersPage() {
       o.customer_name.toLowerCase().includes(q) ||
       o.mobile.includes(q)
     const matchSource = sourceFilter === 'all' || o.source === sourceFilter
+    const matchOrderType = orderTypeFilter === 'all' || o.order_type === orderTypeFilter
     const matchCompany = !companyFilter || o.shipping_company_id === companyFilter
     const orderDate = new Date(o.created_at)
     const matchDateFrom = !dateFrom || orderDate >= new Date(dateFrom)
     const matchDateTo = !dateTo || orderDate <= new Date(dateTo + 'T23:59:59')
-    return matchStatus && matchSearch && matchSource && matchCompany && matchDateFrom && matchDateTo
+    return matchStatus && matchSearch && matchSource && matchOrderType && matchCompany && matchDateFrom && matchDateTo
   })
 
   // Stats
@@ -282,6 +284,31 @@ export default function AdminOrdersPage() {
           ))}
         </div>
         <div className="flex flex-wrap gap-2 items-center border-t border-gray-50 pt-3">
+          {/* Order type filter */}
+          <div className="flex gap-1.5 items-center">
+            <span className="text-xs text-gray-400 whitespace-nowrap">النوع:</span>
+            {([
+              { value: 'all', label: 'الكل' },
+              { value: 'تسليم', label: 'تسليم' },
+              { value: 'استرجاع', label: 'استرجاع' },
+              { value: 'استبدال', label: 'استبدال' },
+            ] as const).map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setOrderTypeFilter(opt.value)}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  orderTypeFilter === opt.value
+                    ? opt.value === 'استرجاع' ? 'bg-red-600 text-white'
+                      : opt.value === 'استبدال' ? 'bg-amber-600 text-white'
+                      : opt.value === 'تسليم' ? 'bg-gray-600 text-white'
+                      : 'bg-gray-800 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
           {/* Source filter */}
           <div className="flex gap-1.5 items-center">
             <span className="text-xs text-gray-400 whitespace-nowrap">المصدر:</span>
@@ -323,9 +350,9 @@ export default function AdminOrdersPage() {
               className="text-xs rounded-md px-2 py-1 bg-gray-100 text-gray-700 border-0 focus:ring-1 focus:ring-pink-400 outline-none" />
           </div>
           {/* Clear filters */}
-          {(sourceFilter !== 'all' || companyFilter || dateFrom || dateTo) && (
+          {(sourceFilter !== 'all' || orderTypeFilter !== 'all' || companyFilter || dateFrom || dateTo) && (
             <button
-              onClick={() => { setSourceFilter('all'); setCompanyFilter(''); setDateFrom(''); setDateTo('') }}
+              onClick={() => { setSourceFilter('all'); setOrderTypeFilter('all'); setCompanyFilter(''); setDateFrom(''); setDateTo('') }}
               className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors"
             >
               مسح الفلاتر
@@ -442,11 +469,18 @@ export default function AdminOrdersPage() {
                     </td>
                     <td className="px-3 md:px-4 py-3">
                       <div className="font-mono font-semibold text-pink-700">{order.order_number}</div>
-                      {order.source && (
-                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${order.source === 'اورجانيك' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
-                          {order.source}
-                        </span>
-                      )}
+                      <div className="flex flex-wrap gap-1 mt-0.5">
+                        {order.source && (
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${order.source === 'اورجانيك' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+                            {order.source}
+                          </span>
+                        )}
+                        {order.order_type && order.order_type !== 'تسليم' && (
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium border ${ORDER_TYPE_COLORS[order.order_type as OrderType]}`}>
+                            {order.order_type}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-3 md:px-4 py-3 text-gray-900 font-medium whitespace-nowrap">{order.customer_name}</td>
                     <td className="hidden md:table-cell px-4 py-3 text-gray-600" dir="ltr">{order.mobile}</td>
@@ -642,6 +676,11 @@ export default function AdminOrdersPage() {
 
                 <div className="space-y-4 text-sm">
                   <Row label="رقم الأوردر" value={<span className="font-mono font-bold text-pink-700">{modal.order.order_number}</span>} />
+                  <Row label="نوع العملية" value={
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${ORDER_TYPE_COLORS[(modal.order.order_type ?? 'تسليم') as OrderType]}`}>
+                      {modal.order.order_type ?? 'تسليم'}
+                    </span>
+                  } />
                   {modal.order.source && (
                     <Row label="المصدر" value={
                       <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${modal.order.source === 'اورجانيك' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
@@ -652,14 +691,36 @@ export default function AdminOrdersPage() {
                   <Row label="الاسم" value={modal.order.customer_name} />
                   <Row label="الموبايل" value={<span dir="ltr">{modal.order.mobile}</span>} />
                   <Row label="العنوان" value={modal.order.address} />
-                  <div>
-                    <p className="text-gray-500 mb-1">المنتجات</p>
-                    <pre className="bg-gray-50 rounded-lg p-3 text-gray-800 whitespace-pre-wrap font-sans text-xs leading-relaxed">
-                      {modal.order.products}
-                    </pre>
-                  </div>
+                  {modal.order.order_type === 'استبدال' ? (
+                    <>
+                      <div>
+                        <p className="text-gray-500 mb-1 font-medium">المنتجات الصادرة</p>
+                        <pre className="bg-gray-50 rounded-lg p-3 text-gray-800 whitespace-pre-wrap font-sans text-xs leading-relaxed">
+                          {modal.order.products}
+                        </pre>
+                      </div>
+                      {modal.order.returned_products && (
+                        <div>
+                          <p className="text-red-600 mb-1 font-medium">المنتجات المرتجعة</p>
+                          <pre className="bg-red-50 rounded-lg p-3 text-gray-800 whitespace-pre-wrap font-sans text-xs leading-relaxed">
+                            {modal.order.returned_products}
+                          </pre>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div>
+                      <p className="text-gray-500 mb-1">المنتجات</p>
+                      <pre className="bg-gray-50 rounded-lg p-3 text-gray-800 whitespace-pre-wrap font-sans text-xs leading-relaxed">
+                        {modal.order.products}
+                      </pre>
+                    </div>
+                  )}
                   <div className="bg-pink-50 rounded-lg p-4 space-y-1.5">
                     <Row label="إجمالي المنتجات" value={formatCurrency(modal.order.products_total)} />
+                    {modal.order.order_type === 'استبدال' && (
+                      <Row label="إجمالي المرتجع" value={<span className="text-red-600">- {formatCurrency(modal.order.returned_products_total)}</span>} />
+                    )}
                     <Row label="الشحن" value={formatCurrency(modal.order.shipping_cost)} />
                     <Row label="الإجمالي" value={<span className="font-bold">{formatCurrency(modal.order.total)}</span>} />
                     <Row label="المدفوع" value={<span className="text-green-600">{formatCurrency(modal.order.amount_paid)}</span>} />

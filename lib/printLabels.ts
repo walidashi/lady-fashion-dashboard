@@ -30,22 +30,32 @@ export async function printLabels(orders: Order[]) {
   const labelsHtml = orders
     .map((order) => {
       const hub = hubLabel(order.order_number)
+      const orderTypeLabel = order.order_type ?? 'تسليم'
       const cod = Number(order.remaining) || 0
+      const codText = cod < 0
+        ? `مبلغ مسترد: ${Math.abs(cod).toLocaleString('ar-EG')} ج.م`
+        : `مبلغ التحصيل: ${cod.toLocaleString('ar-EG')} ج.م`
       const date = new Date(order.created_at).toLocaleDateString('ar-EG')
-      const productsText = order.products
-        .replace(/\n\n+/g, ' | ')
-        .replace(/\n/g, ' ')
+
+      let productsText: string
+      if (orderTypeLabel === 'استبدال' && order.returned_products) {
+        const outgoing = order.products.replace(/\n\n+/g, ' | ').replace(/\n/g, ' ')
+        const incoming = order.returned_products.replace(/\n\n+/g, ' | ').replace(/\n/g, ' ')
+        productsText = `صادر: ${outgoing} || مرتجع: ${incoming}`
+      } else {
+        productsText = order.products.replace(/\n\n+/g, ' | ').replace(/\n/g, ' ')
+      }
 
       return `
 <div class="bol">
 <div class="label">
   <div class="header">
     <div class="header-logo">${logo ? `<img src="${logo}" alt="logo">` : ''}</div>
-    <div class="header-type">تسليم</div>
+    <div class="header-type">${orderTypeLabel}</div>
     <div class="header-hub">${hub}</div>
   </div>
   <div class="cod-row">
-    <span class="cod-amount">مبلغ التحصيل: ${cod.toLocaleString('ar-EG')} ج.م</span>
+    <span class="cod-amount">${codText}</span>
   </div>
   <div class="info-table">
     <div class="merchant-cell">

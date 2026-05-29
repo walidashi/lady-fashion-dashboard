@@ -2,6 +2,8 @@ export type Role = 'employee' | 'admin'
 
 export type OrderStatus = 'new' | 'preparing' | 'shipped' | 'delivered' | 'cancelled'
 
+export type OrderType = 'تسليم' | 'استرجاع' | 'استبدال'
+
 export interface Profile {
   id: string
   full_name: string
@@ -30,6 +32,9 @@ export interface Order {
   notes: string
   payment_method: string
   status: OrderStatus
+  order_type: OrderType
+  returned_products: string | null
+  returned_products_total: number
   estimated_delivery: string | null
   shipping_company_id: string | null
   shipping_company_name: string | null
@@ -63,6 +68,12 @@ export const STATUS_COLORS: Record<OrderStatus, string> = {
   cancelled: 'bg-red-100 text-red-800 border-red-200',
 }
 
+export const ORDER_TYPE_COLORS: Record<OrderType, string> = {
+  'تسليم':   'bg-gray-100 text-gray-700 border-gray-200',
+  'استرجاع': 'bg-red-100 text-red-700 border-red-200',
+  'استبدال': 'bg-amber-100 text-amber-700 border-amber-200',
+}
+
 export const PAYMENT_METHODS = [
   'الدفع عند الاستلام',
   'تحويل بنكي',
@@ -77,4 +88,19 @@ export function formatProductItems(items: ProductItem[]): string {
         `${item.name}\nاللون ${item.color}\nالمقاس ${item.size}\nالسعر ${item.price}`
     )
     .join('\n\n')
+}
+
+export function parseProductItems(text: string | null | undefined): ProductItem[] {
+  if (!text || text === '-') return [{ name: '', color: '', size: '', price: 0 }]
+  const blocks = text.trim().split(/\n\n+/).filter(Boolean)
+  const parsed = blocks.map(block => {
+    const lines = block.split('\n').map(l => l.trim())
+    return {
+      name:  lines[0] || '',
+      color: (lines[1] || '').replace(/^اللون\s*/, ''),
+      size:  (lines[2] || '').replace(/^المقاس\s*/, ''),
+      price: parseFloat((lines[3] || '').replace(/^السعر\s*/, '')) || 0,
+    }
+  }).filter(p => p.name)
+  return parsed.length > 0 ? parsed : [{ name: '', color: '', size: '', price: 0 }]
 }
