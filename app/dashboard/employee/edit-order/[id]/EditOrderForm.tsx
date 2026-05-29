@@ -97,7 +97,7 @@ export default function EditOrderForm({ order, backHref }: Props) {
       payment_method:    order.payment_method,
       notes:             order.notes || '-',
       products:          parseProductItems(order.products),
-      returned_products: parseProductItems(order.returned_products),
+      returned_products: order.returned_products ? parseProductItems(order.returned_products) : [],
     },
   })
 
