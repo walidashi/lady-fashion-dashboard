@@ -11,7 +11,7 @@ import { formatDate, formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
 import {
   FileDown, Search, Check, Truck, X, Eye,
-  Package, Clock, CheckCircle, XCircle, ChevronDown, Pencil, Printer,
+  Package, Clock, CheckCircle, XCircle, ChevronDown, Pencil, Printer, FileUp,
 } from 'lucide-react'
 
 const BULK_STATUS_OPTIONS: { value: string; label: string; color: string }[] = [
@@ -213,6 +213,13 @@ export default function AdminOrdersPage() {
           <p className="text-sm text-gray-500 mt-0.5">{orders.length} طلب</p>
         </div>
         <div className="flex gap-2">
+          <Link
+            href="/dashboard/admin/import"
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3 md:px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+          >
+            <FileUp className="w-4 h-4" />
+            <span className="hidden sm:inline">استيراد Excel</span>
+          </Link>
           <button
             onClick={handlePrint}
             className="flex items-center gap-2 bg-gray-800 hover:bg-gray-900 text-white px-3 md:px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors"

@@ -156,6 +156,56 @@ export async function cancelOrder(orderId: string) {
   return { success: true }
 }
 
+export interface ImportOrderRow {
+  order_number: string
+  customer_name: string
+  mobile: string
+  address: string
+  products: string
+  products_total: number
+  shipping_cost: number
+  total: number
+  amount_paid: number
+  remaining: number
+  items_count: number
+  notes: string
+  payment_method: string
+  status: string
+}
+
+export async function bulkImportOrders(rows: ImportOrderRow[]) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'غير مصرح' }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name, role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') return { error: 'غير مصرح' }
+
+  const admin = adminClient()
+  const toInsert = rows.map(row => ({
+    ...row,
+    source: 'اورجانيك',
+    order_type: 'تسليم',
+    returned_products: null,
+    returned_products_total: 0,
+    created_by: user.id,
+    created_by_name: profile?.full_name ?? '',
+  }))
+
+  const { error } = await admin
+    .from('orders')
+    .upsert(toInsert, { onConflict: 'order_number', ignoreDuplicates: true })
+
+  if (error) return { error: error.message }
+  revalidatePath('/dashboard/admin')
+  return { success: true, count: toInsert.length }
+}
+
 export async function bulkUpdateStatus(orderIds: string[], status: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
