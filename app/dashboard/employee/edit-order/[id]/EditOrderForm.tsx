@@ -61,7 +61,7 @@ function computeFinancials(
 ) {
   const total =
     orderType === 'تسليم'   ? productsTotal + shippingCost :
-    orderType === 'استرجاع' ? -(productsTotal + shippingCost) :
+    orderType === 'استرجاع' ? -productsTotal + shippingCost :
     (productsTotal + shippingCost) - returnedTotal
   return { total, remaining: total - amountPaid }
 }
