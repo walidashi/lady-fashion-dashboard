@@ -26,8 +26,14 @@ const productSchema = z.object({
   price: z.coerce.number().min(1, 'السعر مطلوب'),
 })
 
+const SOURCES = [
+  { value: 'اورجانيك', label: 'اورجانيك' },
+  { value: 'ممول', label: 'ممول' },
+] as const
+
 const schema = z.object({
   region: z.enum(['J', 'C', 'F'], { required_error: 'اختر المنطقة' }),
+  source: z.enum(['اورجانيك', 'ممول'], { required_error: 'اختر نوع الأوردر' }),
   customer_name: z.string().min(1, 'الاسم مطلوب'),
   mobile: z.string().min(10, 'رقم الموبايل غير صحيح'),
   address: z.string().min(10, 'العنوان مطلوب'),
@@ -66,6 +72,7 @@ export default function NewOrderPage() {
   const { fields, append, remove } = useFieldArray({ control, name: 'products' })
 
   const selectedRegion = watch('region') as RegionPrefix | undefined
+  const selectedSource = watch('source')
   const productList = watch('products')
   const productsTotal = productList.reduce((sum, p) => sum + (Number(p.price) || 0), 0)
   const shippingCost = Number(watch('shipping_cost')) || 0
@@ -91,6 +98,7 @@ export default function NewOrderPage() {
       items_count: data.products.length,
       notes: data.notes || '-',
       payment_method: data.payment_method,
+      source: data.source,
     })
 
     if (result.error) {
@@ -157,6 +165,33 @@ export default function NewOrderPage() {
               ))}
             </div>
             {errors.region && <p className="error-text mt-1">{errors.region.message}</p>}
+          </div>
+
+          {/* Source selector */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              نوع الأوردر <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              {SOURCES.map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setValue('source', value, { shouldValidate: true })}
+                  className={cn(
+                    'py-3 px-4 rounded-xl border-2 text-sm font-semibold transition-all',
+                    selectedSource === value
+                      ? value === 'اورجانيك'
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                        : 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 hover:border-gray-300 text-gray-500'
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {errors.source && <p className="error-text mt-1">{errors.source.message}</p>}
           </div>
 
           {/* Payment method */}

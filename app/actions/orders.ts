@@ -40,6 +40,7 @@ export interface CreateOrderPayload {
   items_count: number
   notes: string
   payment_method: string
+  source: string
 }
 
 export async function createOrder(payload: CreateOrderPayload) {

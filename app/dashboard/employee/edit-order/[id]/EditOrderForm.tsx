@@ -9,6 +9,12 @@ import { updateOrder } from '@/app/actions/orders'
 import { Order, PAYMENT_METHODS, formatProductItems, ProductItem } from '@/lib/types'
 import { Plus, Trash2, ArrowRight, ShoppingBag } from 'lucide-react'
 import Link from 'next/link'
+import { cn } from '@/lib/utils'
+
+const SOURCES = [
+  { value: 'اورجانيك', label: 'اورجانيك' },
+  { value: 'ممول', label: 'ممول' },
+] as const
 
 const productSchema = z.object({
   name: z.string().min(1, 'اسم المنتج مطلوب'),
@@ -19,6 +25,7 @@ const productSchema = z.object({
 
 const schema = z.object({
   order_number: z.string().min(1, 'رقم الأوردر مطلوب'),
+  source: z.string().min(1, 'اختر نوع الأوردر'),
   customer_name: z.string().min(1, 'الاسم مطلوب'),
   mobile: z.string().min(10, 'رقم الموبايل غير صحيح'),
   address: z.string().min(10, 'العنوان مطلوب'),
@@ -60,12 +67,14 @@ export default function EditOrderForm({ order, backHref }: Props) {
     register,
     handleSubmit,
     watch,
+    setValue,
     control,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       order_number: order.order_number,
+      source: order.source ?? 'اورجانيك',
       customer_name: order.customer_name,
       mobile: order.mobile,
       address: order.address,
@@ -79,6 +88,7 @@ export default function EditOrderForm({ order, backHref }: Props) {
 
   const { fields, append, remove } = useFieldArray({ control, name: 'products' })
 
+  const selectedSource = watch('source')
   const productList = watch('products')
   const productsTotal = productList.reduce((sum, p) => sum + (Number(p.price) || 0), 0)
   const shippingCost = Number(watch('shipping_cost')) || 0
@@ -92,6 +102,7 @@ export default function EditOrderForm({ order, backHref }: Props) {
 
     const result = await updateOrder(order.id, {
       order_number: data.order_number,
+      source: data.source,
       customer_name: data.customer_name,
       mobile: data.mobile,
       address: data.address,
@@ -149,6 +160,31 @@ export default function EditOrderForm({ order, backHref }: Props) {
                 {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
+          </div>
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              نوع الأوردر <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              {SOURCES.map(s => (
+                <button
+                  key={s.value}
+                  type="button"
+                  onClick={() => setValue('source', s.value, { shouldValidate: true })}
+                  className={cn(
+                    'py-2.5 rounded-lg text-sm font-semibold transition-all border-2',
+                    selectedSource === s.value
+                      ? s.value === 'اورجانيك'
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-700'
+                        : 'bg-blue-50 border-blue-500 text-blue-700'
+                      : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
+                  )}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            {errors.source && <p className="error-text mt-1">{errors.source.message}</p>}
           </div>
         </div>
 

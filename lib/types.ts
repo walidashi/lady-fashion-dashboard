@@ -33,6 +33,7 @@ export interface Order {
   estimated_delivery: string | null
   shipping_company_id: string | null
   shipping_company_name: string | null
+  source: string | null
   created_by: string
   created_by_name: string
   created_at: string
