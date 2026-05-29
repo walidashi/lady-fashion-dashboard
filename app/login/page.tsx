@@ -3,7 +3,8 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Lock, Mail, Shirt } from 'lucide-react'
+import { Lock, Mail } from 'lucide-react'
+import Image from 'next/image'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -35,11 +36,8 @@ export default function LoginPage() {
       <div className="w-full max-w-sm px-4">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-[#111111] rounded-xl mb-5">
-            <Shirt className="w-7 h-7 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Lady Fashion</h1>
-          <p className="text-gray-500 text-sm mt-1">لوحة إدارة الطلبات</p>
+          <Image src="/logo.webp" alt="Lady Fashion" width={160} height={64} className="mx-auto h-14 w-auto mb-2" />
+          <p className="text-gray-500 text-sm">لوحة إدارة الطلبات</p>
         </div>
 
         <div className="bg-white rounded-xl p-7" style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 12px rgba(0,0,0,0.05)' }}>

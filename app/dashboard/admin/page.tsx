@@ -4,13 +4,14 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Order, ShippingCompany, STATUS_LABELS, OrderStatus } from '@/lib/types'
 import { generateShippingExcel } from '@/lib/excel'
+import { printLabels } from '@/lib/printLabels'
 import { acceptOrder, shipOrder, deliverOrder, cancelOrder, bulkUpdateStatus } from '@/app/actions/orders'
 import OrderStatusBadge from '@/components/OrderStatusBadge'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
 import {
   FileDown, Search, Check, Truck, X, Eye,
-  Package, Clock, CheckCircle, XCircle, ChevronDown, Pencil,
+  Package, Clock, CheckCircle, XCircle, ChevronDown, Pencil, Printer,
 } from 'lucide-react'
 
 const BULK_STATUS_OPTIONS: { value: string; label: string; color: string }[] = [
@@ -49,6 +50,10 @@ export default function AdminOrdersPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [actionError, setActionError] = useState('')
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false)
+  const [sourceFilter, setSourceFilter] = useState('all')
+  const [companyFilter, setCompanyFilter] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
 
   // Accept form state
   const [deliveryDate, setDeliveryDate] = useState('')
@@ -81,7 +86,12 @@ export default function AdminOrdersPage() {
       o.order_number.toLowerCase().includes(q) ||
       o.customer_name.toLowerCase().includes(q) ||
       o.mobile.includes(q)
-    return matchStatus && matchSearch
+    const matchSource = sourceFilter === 'all' || o.source === sourceFilter
+    const matchCompany = !companyFilter || o.shipping_company_id === companyFilter
+    const orderDate = new Date(o.created_at)
+    const matchDateFrom = !dateFrom || orderDate >= new Date(dateFrom)
+    const matchDateTo = !dateTo || orderDate <= new Date(dateTo + 'T23:59:59')
+    return matchStatus && matchSearch && matchSource && matchCompany && matchDateFrom && matchDateTo
   })
 
   // Stats
@@ -175,6 +185,15 @@ export default function AdminOrdersPage() {
     generateShippingExcel(toExport)
   }
 
+  const handlePrint = () => {
+    const toPrint =
+      selected.size > 0
+        ? orders.filter((o) => selected.has(o.id))
+        : filtered
+    if (toPrint.length === 0) return
+    printLabels(toPrint)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -191,15 +210,26 @@ export default function AdminOrdersPage() {
           <h1 className="text-xl font-bold text-gray-900">جميع الطلبات</h1>
           <p className="text-sm text-gray-500 mt-0.5">{orders.length} طلب</p>
         </div>
-        <button
-          onClick={handleExport}
-          className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-3 md:px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors"
-        >
-          <FileDown className="w-4 h-4" />
-          <span className="hidden sm:inline">
-            {selected.size > 0 ? `تصدير (${selected.size})` : 'تصدير Excel'}
-          </span>
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 bg-gray-800 hover:bg-gray-900 text-white px-3 md:px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+          >
+            <Printer className="w-4 h-4" />
+            <span className="hidden sm:inline">
+              {selected.size > 0 ? `طباعة (${selected.size})` : 'طباعة Labels'}
+            </span>
+          </button>
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-3 md:px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+          >
+            <FileDown className="w-4 h-4" />
+            <span className="hidden sm:inline">
+              {selected.size > 0 ? `تصدير (${selected.size})` : 'تصدير Excel'}
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -251,6 +281,57 @@ export default function AdminOrdersPage() {
             </button>
           ))}
         </div>
+        <div className="flex flex-wrap gap-2 items-center border-t border-gray-50 pt-3">
+          {/* Source filter */}
+          <div className="flex gap-1.5 items-center">
+            <span className="text-xs text-gray-400 whitespace-nowrap">المصدر:</span>
+            {[{ value: 'all', label: 'الكل' }, { value: 'اورجانيك', label: 'اورجانيك' }, { value: 'ممول', label: 'ممول' }].map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setSourceFilter(opt.value)}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  sourceFilter === opt.value
+                    ? opt.value === 'اورجانيك' ? 'bg-emerald-600 text-white' : opt.value === 'ممول' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          {/* Company filter */}
+          {companies.length > 0 && (
+            <div className="flex gap-1.5 items-center">
+              <span className="text-xs text-gray-400 whitespace-nowrap">الشركة:</span>
+              <select
+                value={companyFilter}
+                onChange={e => setCompanyFilter(e.target.value)}
+                className="text-xs rounded-md px-2 py-1 bg-gray-100 text-gray-700 border-0 focus:ring-1 focus:ring-pink-400 outline-none"
+              >
+                <option value="">الكل</option>
+                {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+          )}
+          {/* Date range */}
+          <div className="flex gap-1.5 items-center">
+            <span className="text-xs text-gray-400 whitespace-nowrap">من:</span>
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+              className="text-xs rounded-md px-2 py-1 bg-gray-100 text-gray-700 border-0 focus:ring-1 focus:ring-pink-400 outline-none" />
+            <span className="text-xs text-gray-400">إلى:</span>
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+              className="text-xs rounded-md px-2 py-1 bg-gray-100 text-gray-700 border-0 focus:ring-1 focus:ring-pink-400 outline-none" />
+          </div>
+          {/* Clear filters */}
+          {(sourceFilter !== 'all' || companyFilter || dateFrom || dateTo) && (
+            <button
+              onClick={() => { setSourceFilter('all'); setCompanyFilter(''); setDateFrom(''); setDateTo('') }}
+              className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors"
+            >
+              مسح الفلاتر
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Bulk action bar */}
@@ -282,6 +363,14 @@ export default function AdminOrdersPage() {
               </div>
             )}
           </div>
+          {/* Bulk print */}
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+          >
+            <Printer className="w-4 h-4" />
+            طباعة Labels
+          </button>
           {/* Bulk export */}
           <button
             onClick={handleExport}
@@ -351,7 +440,14 @@ export default function AdminOrdersPage() {
                         className="rounded border-gray-300 text-pink-600 focus:ring-pink-400"
                       />
                     </td>
-                    <td className="px-3 md:px-4 py-3 font-mono font-semibold text-pink-700">{order.order_number}</td>
+                    <td className="px-3 md:px-4 py-3">
+                      <div className="font-mono font-semibold text-pink-700">{order.order_number}</div>
+                      {order.source && (
+                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${order.source === 'اورجانيك' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {order.source}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 md:px-4 py-3 text-gray-900 font-medium whitespace-nowrap">{order.customer_name}</td>
                     <td className="hidden md:table-cell px-4 py-3 text-gray-600" dir="ltr">{order.mobile}</td>
                     <td className="px-3 md:px-4 py-3 text-gray-900 font-medium whitespace-nowrap">{formatCurrency(order.total)}</td>
@@ -546,6 +642,13 @@ export default function AdminOrdersPage() {
 
                 <div className="space-y-4 text-sm">
                   <Row label="رقم الأوردر" value={<span className="font-mono font-bold text-pink-700">{modal.order.order_number}</span>} />
+                  {modal.order.source && (
+                    <Row label="المصدر" value={
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${modal.order.source === 'اورجانيك' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+                        {modal.order.source}
+                      </span>
+                    } />
+                  )}
                   <Row label="الاسم" value={modal.order.customer_name} />
                   <Row label="الموبايل" value={<span dir="ltr">{modal.order.mobile}</span>} />
                   <Row label="العنوان" value={modal.order.address} />

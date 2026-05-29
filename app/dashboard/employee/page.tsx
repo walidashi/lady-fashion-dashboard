@@ -90,7 +90,14 @@ export default function EmployeeOrdersPage() {
               <tbody className="divide-y divide-gray-50">
                 {orders.map(order => (
                   <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-3 md:px-4 py-3 font-mono font-semibold text-pink-700">{order.order_number}</td>
+                    <td className="px-3 md:px-4 py-3">
+                      <div className="font-mono font-semibold text-pink-700">{order.order_number}</div>
+                      {order.source && (
+                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${order.source === 'اورجانيك' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {order.source}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 md:px-4 py-3 text-gray-900 font-medium">{order.customer_name}</td>
                     <td className="hidden md:table-cell px-4 py-3 text-gray-600" dir="ltr">{order.mobile}</td>
                     <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{order.payment_method}</td>
