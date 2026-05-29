@@ -133,7 +133,7 @@ export default function EditOrderForm({ order, backHref }: Props) {
             <ShoppingBag className="w-4 h-4 text-pink-500" />
             بيانات الأوردر
           </h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 رقم الأوردر <span className="text-red-500">*</span>
@@ -156,7 +156,7 @@ export default function EditOrderForm({ order, backHref }: Props) {
         <div className="bg-white rounded-xl p-5" style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
           <h2 className="font-semibold text-gray-800 mb-4">بيانات العميل</h2>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">الاسم <span className="text-red-500">*</span></label>
                 <input {...register('customer_name')} className="input-field" placeholder="اسم العميل" />
@@ -203,7 +203,7 @@ export default function EditOrderForm({ order, backHref }: Props) {
                     </button>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="col-span-2">
                     <input {...register(`products.${index}.name`)} className="input-field" placeholder="اسم المنتج" />
                     {errors.products?.[index]?.name && <p className="error-text">{errors.products[index]?.name?.message}</p>}

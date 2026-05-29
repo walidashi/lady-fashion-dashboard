@@ -11,6 +11,7 @@ import Image from 'next/image'
 
 interface Props {
   profile: Profile
+  onClose?: () => void
 }
 
 const employeeLinks = [
@@ -24,7 +25,7 @@ const adminLinks = [
   { href: '/dashboard/admin/settings', icon: Settings, label: 'الإعدادات', exact: false },
 ]
 
-export default function Sidebar({ profile }: Props) {
+export default function Sidebar({ profile, onClose }: Props) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
@@ -44,16 +45,14 @@ export default function Sidebar({ profile }: Props) {
     <aside className="w-60 bg-[#111111] flex flex-col min-h-screen border-l border-[#1e1e1e]">
       {/* Brand */}
       <div className="px-5 py-4 border-b border-[#1e1e1e]">
-        <div className="flex items-center gap-3">
-          <Image
-            src="/logo.webp"
-            alt="Lady Fashion"
-            width={120}
-            height={40}
-            className="h-10 w-auto object-contain brightness-0 invert"
-            priority
-          />
-        </div>
+        <Image
+          src="/logo.webp"
+          alt="Lady Fashion"
+          width={120}
+          height={40}
+          className="h-10 w-auto object-contain brightness-0 invert"
+          priority
+        />
         <p className="text-xs text-[#6b6b6b] mt-1.5">
           {profile.role === 'admin' ? 'مدير النظام' : 'موظف'}
         </p>
@@ -65,6 +64,7 @@ export default function Sidebar({ profile }: Props) {
           <Link
             key={href}
             href={href}
+            onClick={onClose}
             className={cn(
               'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
               isActive(href, exact)

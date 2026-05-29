@@ -193,15 +193,17 @@ export default function AdminOrdersPage() {
         </div>
         <button
           onClick={handleExport}
-          className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+          className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-3 md:px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors"
         >
           <FileDown className="w-4 h-4" />
-          {selected.size > 0 ? `تصدير (${selected.size})` : 'تصدير Excel'}
+          <span className="hidden sm:inline">
+            {selected.size > 0 ? `تصدير (${selected.size})` : 'تصدير Excel'}
+          </span>
         </button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
         {[
           { label: 'إجمالي الطلبات', value: stats.total, icon: Package, color: 'text-gray-600', bg: 'bg-gray-100' },
           { label: 'جديد', value: stats.new, icon: Clock, color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -223,8 +225,8 @@ export default function AdminOrdersPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl p-4 mb-4 flex items-center gap-3 flex-wrap" style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-        <div className="relative flex-1 min-w-[200px]">
+      <div className="bg-white rounded-xl p-3 md:p-4 mb-4 flex flex-col gap-3" style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+        <div className="relative">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
@@ -253,7 +255,7 @@ export default function AdminOrdersPage() {
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="bg-gray-900 text-white rounded-2xl px-5 py-3 mb-4 flex items-center gap-4 shadow-lg">
+        <div className="bg-gray-900 text-white rounded-xl px-4 py-3 mb-4 flex items-center gap-3 shadow-lg overflow-x-auto scrollbar-thin">
           <span className="text-sm font-medium flex-1">
             {selected.size} طلب محدد
           </span>
@@ -319,7 +321,7 @@ export default function AdminOrdersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="px-4 py-3 text-right">
+                  <th className="px-3 md:px-4 py-3 text-right">
                     <input
                       type="checkbox"
                       checked={selected.size > 0 && selected.size === filtered.length}
@@ -327,21 +329,21 @@ export default function AdminOrdersPage() {
                       className="rounded border-gray-300 text-pink-600 focus:ring-pink-400"
                     />
                   </th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">رقم الأوردر</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الاسم</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الموبايل</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الإجمالي</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الباقي</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الموظف</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">التاريخ</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الحالة</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">إجراءات</th>
+                  <th className="px-3 md:px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">رقم الأوردر</th>
+                  <th className="px-3 md:px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الاسم</th>
+                  <th className="hidden md:table-cell px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الموبايل</th>
+                  <th className="px-3 md:px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الإجمالي</th>
+                  <th className="hidden sm:table-cell px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الباقي</th>
+                  <th className="hidden lg:table-cell px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الموظف</th>
+                  <th className="hidden lg:table-cell px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">التاريخ</th>
+                  <th className="px-3 md:px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الحالة</th>
+                  <th className="px-3 md:px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">إجراءات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filtered.map((order) => (
                   <tr key={order.id} className={`hover:bg-gray-50/50 transition-colors ${selected.has(order.id) ? 'bg-pink-50/30' : ''}`}>
-                    <td className="px-4 py-3">
+                    <td className="px-3 md:px-4 py-3">
                       <input
                         type="checkbox"
                         checked={selected.has(order.id)}
@@ -349,18 +351,18 @@ export default function AdminOrdersPage() {
                         className="rounded border-gray-300 text-pink-600 focus:ring-pink-400"
                       />
                     </td>
-                    <td className="px-4 py-3 font-mono font-semibold text-pink-700">{order.order_number}</td>
-                    <td className="px-4 py-3 text-gray-900 font-medium whitespace-nowrap">{order.customer_name}</td>
-                    <td className="px-4 py-3 text-gray-600" dir="ltr">{order.mobile}</td>
-                    <td className="px-4 py-3 text-gray-900 font-medium whitespace-nowrap">{formatCurrency(order.total)}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-3 md:px-4 py-3 font-mono font-semibold text-pink-700">{order.order_number}</td>
+                    <td className="px-3 md:px-4 py-3 text-gray-900 font-medium whitespace-nowrap">{order.customer_name}</td>
+                    <td className="hidden md:table-cell px-4 py-3 text-gray-600" dir="ltr">{order.mobile}</td>
+                    <td className="px-3 md:px-4 py-3 text-gray-900 font-medium whitespace-nowrap">{formatCurrency(order.total)}</td>
+                    <td className="hidden sm:table-cell px-4 py-3 whitespace-nowrap">
                       <span className={Number(order.remaining) > 0 ? 'text-orange-600 font-medium' : 'text-green-600 font-medium'}>
                         {formatCurrency(order.remaining)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{order.created_by_name}</td>
-                    <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(order.created_at)}</td>
-                    <td className="px-4 py-3">
+                    <td className="hidden lg:table-cell px-4 py-3 text-gray-500 whitespace-nowrap">{order.created_by_name}</td>
+                    <td className="hidden lg:table-cell px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(order.created_at)}</td>
+                    <td className="px-3 md:px-4 py-3">
                       <OrderStatusBadge status={order.status} />
                     </td>
                     <td className="px-4 py-3">
@@ -437,7 +439,7 @@ export default function AdminOrdersPage() {
           className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={(e) => e.target === e.currentTarget && closeModal()}
         >
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto mx-2 sm:mx-0">
             {/* Accept Modal */}
             {modal.type === 'accept' && (
               <div className="p-6">

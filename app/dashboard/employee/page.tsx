@@ -76,35 +76,35 @@ export default function EmployeeOrdersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">رقم الأوردر</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الاسم</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الموبايل</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">طريقة الدفع</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الإجمالي</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الباقي</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الحالة</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">التاريخ</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">إجراءات</th>
+                  <th className="px-3 md:px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">رقم الأوردر</th>
+                  <th className="px-3 md:px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الاسم</th>
+                  <th className="hidden md:table-cell px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الموبايل</th>
+                  <th className="hidden lg:table-cell px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">طريقة الدفع</th>
+                  <th className="px-3 md:px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الإجمالي</th>
+                  <th className="hidden sm:table-cell px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الباقي</th>
+                  <th className="px-3 md:px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الحالة</th>
+                  <th className="hidden lg:table-cell px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">التاريخ</th>
+                  <th className="px-3 md:px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">إجراءات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {orders.map(order => (
                   <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-4 py-3 font-mono font-semibold text-pink-700">{order.order_number}</td>
-                    <td className="px-4 py-3 text-gray-900 font-medium">{order.customer_name}</td>
-                    <td className="px-4 py-3 text-gray-600" dir="ltr">{order.mobile}</td>
-                    <td className="px-4 py-3 text-gray-600">{order.payment_method}</td>
-                    <td className="px-4 py-3 text-gray-900 font-medium">{formatCurrency(order.total)}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 md:px-4 py-3 font-mono font-semibold text-pink-700">{order.order_number}</td>
+                    <td className="px-3 md:px-4 py-3 text-gray-900 font-medium">{order.customer_name}</td>
+                    <td className="hidden md:table-cell px-4 py-3 text-gray-600" dir="ltr">{order.mobile}</td>
+                    <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{order.payment_method}</td>
+                    <td className="px-3 md:px-4 py-3 text-gray-900 font-medium">{formatCurrency(order.total)}</td>
+                    <td className="hidden sm:table-cell px-4 py-3">
                       <span className={Number(order.remaining) > 0 ? 'text-orange-600 font-medium' : 'text-green-600 font-medium'}>
                         {formatCurrency(order.remaining)}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 md:px-4 py-3">
                       <OrderStatusBadge status={order.status} />
                     </td>
-                    <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(order.created_at)}</td>
-                    <td className="px-4 py-3">
+                    <td className="hidden lg:table-cell px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(order.created_at)}</td>
+                    <td className="px-3 md:px-4 py-3">
                       <div className="flex items-center gap-1.5">
                         <Link
                           href={`/dashboard/employee/edit-order/${order.id}`}

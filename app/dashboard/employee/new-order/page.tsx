@@ -5,10 +5,19 @@ import { useRouter } from 'next/navigation'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { createOrder } from '@/app/actions/orders'
+import { createOrder, getNextOrderNumber } from '@/app/actions/orders'
 import { PAYMENT_METHODS, formatProductItems } from '@/lib/types'
 import { Plus, Trash2, ArrowRight, ShoppingBag } from 'lucide-react'
 import Link from 'next/link'
+import { cn } from '@/lib/utils'
+
+const REGIONS = [
+  { prefix: 'J', label: 'القاهرة والجيزة' },
+  { prefix: 'C', label: 'محافظات مجاورة' },
+  { prefix: 'F', label: 'محافظات بعيدة' },
+] as const
+
+type RegionPrefix = 'J' | 'C' | 'F'
 
 const productSchema = z.object({
   name: z.string().min(1, 'اسم المنتج مطلوب'),
@@ -18,7 +27,7 @@ const productSchema = z.object({
 })
 
 const schema = z.object({
-  order_number: z.string().min(1, 'رقم الأوردر مطلوب'),
+  region: z.enum(['J', 'C', 'F'], { required_error: 'اختر المنطقة' }),
   customer_name: z.string().min(1, 'الاسم مطلوب'),
   mobile: z.string().min(10, 'رقم الموبايل غير صحيح'),
   address: z.string().min(10, 'العنوان مطلوب'),
@@ -41,6 +50,7 @@ export default function NewOrderPage() {
     handleSubmit,
     watch,
     control,
+    setValue,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -55,6 +65,7 @@ export default function NewOrderPage() {
 
   const { fields, append, remove } = useFieldArray({ control, name: 'products' })
 
+  const selectedRegion = watch('region') as RegionPrefix | undefined
   const productList = watch('products')
   const productsTotal = productList.reduce((sum, p) => sum + (Number(p.price) || 0), 0)
   const shippingCost = Number(watch('shipping_cost')) || 0
@@ -66,8 +77,10 @@ export default function NewOrderPage() {
     setSubmitting(true)
     setServerError('')
 
+    const orderNumber = await getNextOrderNumber(data.region)
+
     const result = await createOrder({
-      order_number: data.order_number,
+      order_number: orderNumber,
       customer_name: data.customer_name,
       mobile: data.mobile,
       address: data.address,
@@ -93,10 +106,7 @@ export default function NewOrderPage() {
     <div className="max-w-3xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <Link
-          href="/dashboard/employee"
-          className="text-gray-400 hover:text-gray-600 transition-colors"
-        >
+        <Link href="/dashboard/employee" className="text-gray-400 hover:text-gray-600 transition-colors">
           <ArrowRight className="w-5 h-5" />
         </Link>
         <div>
@@ -112,29 +122,53 @@ export default function NewOrderPage() {
             <ShoppingBag className="w-4 h-4 text-pink-500" />
             بيانات الأوردر
           </h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                رقم الأوردر <span className="text-red-500">*</span>
-              </label>
-              <input
-                {...register('order_number')}
-                className="input-field"
-                placeholder="مثال: E383"
-                dir="ltr"
-              />
-              {errors.order_number && <p className="error-text">{errors.order_number.message}</p>}
+
+          {/* Region selector */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              المنطقة <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-3 gap-3">
+              {REGIONS.map(({ prefix, label }) => (
+                <button
+                  key={prefix}
+                  type="button"
+                  onClick={() => setValue('region', prefix, { shouldValidate: true })}
+                  className={cn(
+                    'flex flex-col items-center py-4 px-2 rounded-xl border-2 transition-all',
+                    selectedRegion === prefix
+                      ? 'border-pink-600 bg-pink-50'
+                      : 'border-gray-200 hover:border-gray-300 bg-white'
+                  )}
+                >
+                  <span className={cn(
+                    'text-2xl font-black mb-1 font-mono',
+                    selectedRegion === prefix ? 'text-pink-700' : 'text-gray-400'
+                  )}>
+                    {prefix}
+                  </span>
+                  <span className={cn(
+                    'text-xs text-center leading-tight',
+                    selectedRegion === prefix ? 'text-pink-700 font-semibold' : 'text-gray-500'
+                  )}>
+                    {label}
+                  </span>
+                </button>
+              ))}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                طريقة الدفع <span className="text-red-500">*</span>
-              </label>
-              <select {...register('payment_method')} className="input-field">
-                {PAYMENT_METHODS.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-            </div>
+            {errors.region && <p className="error-text mt-1">{errors.region.message}</p>}
+          </div>
+
+          {/* Payment method */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              طريقة الدفع <span className="text-red-500">*</span>
+            </label>
+            <select {...register('payment_method')} className="input-field">
+              {PAYMENT_METHODS.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -142,7 +176,7 @@ export default function NewOrderPage() {
         <div className="bg-white rounded-xl p-5" style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
           <h2 className="font-semibold text-gray-800 mb-4">بيانات العميل</h2>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   الاسم <span className="text-red-500">*</span>
@@ -154,12 +188,7 @@ export default function NewOrderPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   رقم الموبايل <span className="text-red-500">*</span>
                 </label>
-                <input
-                  {...register('mobile')}
-                  className="input-field"
-                  placeholder="01xxxxxxxxx"
-                  dir="ltr"
-                />
+                <input {...register('mobile')} className="input-field" placeholder="01xxxxxxxxx" dir="ltr" />
                 {errors.mobile && <p className="error-text">{errors.mobile.message}</p>}
               </div>
             </div>
@@ -167,12 +196,7 @@ export default function NewOrderPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 العنوان <span className="text-red-500">*</span>
               </label>
-              <textarea
-                {...register('address')}
-                rows={3}
-                className="input-field resize-none"
-                placeholder="العنوان بالكامل..."
-              />
+              <textarea {...register('address')} rows={3} className="input-field resize-none" placeholder="العنوان بالكامل..." />
               {errors.address && <p className="error-text">{errors.address.message}</p>}
             </div>
           </div>
@@ -185,7 +209,7 @@ export default function NewOrderPage() {
             <button
               type="button"
               onClick={() => append({ name: '', color: '', size: '', price: 0 })}
-              className="flex items-center gap-1.5 text-pink-600 hover:text-pink-700 text-sm font-medium transition-colors"
+              className="flex items-center gap-1.5 text-pink-700 hover:text-pink-800 text-sm font-medium transition-colors"
             >
               <Plus className="w-4 h-4" />
               إضافة منتج
@@ -202,61 +226,30 @@ export default function NewOrderPage() {
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-medium text-gray-600">منتج {index + 1}</span>
                   {fields.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => remove(index)}
-                      className="text-red-400 hover:text-red-600 transition-colors p-1"
-                    >
+                    <button type="button" onClick={() => remove(index)} className="text-red-400 hover:text-red-600 transition-colors p-1">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="col-span-2">
-                    <input
-                      {...register(`products.${index}.name`)}
-                      className="input-field"
-                      placeholder="اسم المنتج (مثال: شميز بوبلين)"
-                    />
-                    {errors.products?.[index]?.name && (
-                      <p className="error-text">{errors.products[index]?.name?.message}</p>
-                    )}
+                    <input {...register(`products.${index}.name`)} className="input-field" placeholder="اسم المنتج (مثال: شميز بوبلين)" />
+                    {errors.products?.[index]?.name && <p className="error-text">{errors.products[index]?.name?.message}</p>}
                   </div>
                   <div>
-                    <input
-                      {...register(`products.${index}.color`)}
-                      className="input-field"
-                      placeholder="اللون"
-                    />
-                    {errors.products?.[index]?.color && (
-                      <p className="error-text">{errors.products[index]?.color?.message}</p>
-                    )}
+                    <input {...register(`products.${index}.color`)} className="input-field" placeholder="اللون" />
+                    {errors.products?.[index]?.color && <p className="error-text">{errors.products[index]?.color?.message}</p>}
                   </div>
                   <div>
-                    <input
-                      {...register(`products.${index}.size`)}
-                      className="input-field"
-                      placeholder="المقاس (مثال: M, L, XL)"
-                    />
-                    {errors.products?.[index]?.size && (
-                      <p className="error-text">{errors.products[index]?.size?.message}</p>
-                    )}
+                    <input {...register(`products.${index}.size`)} className="input-field" placeholder="المقاس (مثال: M, L, XL)" />
+                    {errors.products?.[index]?.size && <p className="error-text">{errors.products[index]?.size?.message}</p>}
                   </div>
                   <div className="col-span-2">
                     <div className="relative">
-                      <input
-                        type="number"
-                        {...register(`products.${index}.price`)}
-                        className="input-field pl-14"
-                        placeholder="السعر"
-                        min={0}
-                        dir="ltr"
-                      />
+                      <input type="number" {...register(`products.${index}.price`)} className="input-field pl-14" placeholder="السعر" min={0} dir="ltr" />
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">ج.م</span>
                     </div>
-                    {errors.products?.[index]?.price && (
-                      <p className="error-text">{errors.products[index]?.price?.message}</p>
-                    )}
+                    {errors.products?.[index]?.price && <p className="error-text">{errors.products[index]?.price?.message}</p>}
                   </div>
                 </div>
               </div>
@@ -267,36 +260,22 @@ export default function NewOrderPage() {
         {/* Financial */}
         <div className="bg-white rounded-xl p-5" style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
           <h2 className="font-semibold text-gray-800 mb-4">التفاصيل المالية</h2>
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">تكلفة الشحن</label>
               <div className="relative">
-                <input
-                  type="number"
-                  {...register('shipping_cost')}
-                  className="input-field pl-14"
-                  min={0}
-                  dir="ltr"
-                />
+                <input type="number" {...register('shipping_cost')} className="input-field pl-14" min={0} dir="ltr" />
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">ج.م</span>
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">المبلغ المدفوع</label>
               <div className="relative">
-                <input
-                  type="number"
-                  {...register('amount_paid')}
-                  className="input-field pl-14"
-                  min={0}
-                  dir="ltr"
-                />
+                <input type="number" {...register('amount_paid')} className="input-field pl-14" min={0} dir="ltr" />
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">ج.م</span>
               </div>
             </div>
           </div>
-
-          {/* Summary */}
           <div className="bg-pink-50 rounded-lg p-4 space-y-2 text-sm">
             <div className="flex justify-between text-gray-600">
               <span>إجمالي المنتجات</span>
@@ -326,12 +305,7 @@ export default function NewOrderPage() {
         {/* Notes */}
         <div className="bg-white rounded-xl p-5" style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
           <h2 className="font-semibold text-gray-800 mb-4">ملاحظات</h2>
-          <textarea
-            {...register('notes')}
-            rows={2}
-            className="input-field resize-none"
-            placeholder="أي ملاحظات إضافية..."
-          />
+          <textarea {...register('notes')} rows={2} className="input-field resize-none" placeholder="أي ملاحظات إضافية..." />
         </div>
 
         {serverError && (
@@ -348,10 +322,7 @@ export default function NewOrderPage() {
           >
             {submitting ? 'جاري الحفظ...' : 'حفظ الطلب'}
           </button>
-          <Link
-            href="/dashboard/employee"
-            className="btn-secondary px-6 py-3 text-center"
-          >
+          <Link href="/dashboard/employee" className="btn-secondary px-6 py-3 text-center">
             إلغاء
           </Link>
         </div>

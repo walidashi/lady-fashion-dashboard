@@ -1,7 +1,32 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
+
+function adminClient() {
+  return createSupabaseAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
+
+export async function getNextOrderNumber(prefix: string): Promise<string> {
+  const supabase = adminClient()
+  const { data } = await supabase
+    .from('orders')
+    .select('order_number')
+    .ilike('order_number', `${prefix}%`)
+
+  let max = 0
+  for (const row of data ?? []) {
+    const num = parseInt(row.order_number.replace(/^[A-Za-z]+/, ''), 10)
+    if (!isNaN(num) && num > max) max = num
+  }
+
+  return `${prefix}${max + 1}`
+}
 
 export interface CreateOrderPayload {
   order_number: string
