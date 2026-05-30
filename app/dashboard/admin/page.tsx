@@ -5,28 +5,30 @@ import { createClient } from '@/lib/supabase/client'
 import { Order, ShippingCompany, STATUS_LABELS, OrderStatus, OrderType, ORDER_TYPE_COLORS } from '@/lib/types'
 import { generateShippingExcel } from '@/lib/excel'
 import { printLabels } from '@/lib/printLabels'
-import { acceptOrder, shipOrder, deliverOrder, cancelOrder, bulkUpdateStatus } from '@/app/actions/orders'
+import { acceptOrder, shipOrder, deliverOrder, cancelOrder, bulkUpdateStatus, markOrderReady } from '@/app/actions/orders'
 import OrderStatusBadge from '@/components/OrderStatusBadge'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
 import {
   FileDown, Search, Check, Truck, X, Eye,
-  Package, Clock, CheckCircle, XCircle, ChevronDown, Pencil, Printer, FileUp,
+  Package, Clock, CheckCircle, XCircle, ChevronDown, Pencil, Printer, FileUp, PackageCheck,
 } from 'lucide-react'
 
 const BULK_STATUS_OPTIONS: { value: string; label: string; color: string }[] = [
   { value: 'new',       label: 'جديد',           color: 'text-blue-700 hover:bg-blue-50' },
   { value: 'preparing', label: 'جاري التجهيز',   color: 'text-orange-700 hover:bg-orange-50' },
+  { value: 'ready',     label: 'جاهز',            color: 'text-teal-700 hover:bg-teal-50' },
   { value: 'shipped',   label: 'مشحون',           color: 'text-purple-700 hover:bg-purple-50' },
   { value: 'delivered', label: 'تم التسليم',      color: 'text-green-700 hover:bg-green-50' },
   { value: 'cancelled', label: 'ملغي',            color: 'text-red-700 hover:bg-red-50' },
 ]
 
 const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
-  { value: 'all', label: 'جميع الطلبات' },
-  { value: 'new', label: 'جديد' },
+  { value: 'all',       label: 'جميع الطلبات' },
+  { value: 'new',       label: 'جديد' },
   { value: 'preparing', label: 'جاري التجهيز' },
-  { value: 'shipped', label: 'مشحون' },
+  { value: 'ready',     label: 'جاهز' },
+  { value: 'shipped',   label: 'مشحون' },
   { value: 'delivered', label: 'تم التسليم' },
   { value: 'cancelled', label: 'ملغي' },
 ]
@@ -100,7 +102,7 @@ export default function AdminOrdersPage() {
   const stats = {
     new: orders.filter((o) => o.status === 'new').length,
     preparing: orders.filter((o) => o.status === 'preparing').length,
-    shipped: orders.filter((o) => o.status === 'shipped').length,
+    ready: orders.filter((o) => o.status === 'ready').length,
     total: orders.length,
   }
 
@@ -156,6 +158,11 @@ export default function AdminOrdersPage() {
       fetchOrders()
     }
     setActionLoading(false)
+  }
+
+  const handleMarkReady = async (orderId: string) => {
+    await markOrderReady(orderId)
+    fetchOrders()
   }
 
   const handleDeliver = async (orderId: string) => {
@@ -247,7 +254,7 @@ export default function AdminOrdersPage() {
           { label: 'إجمالي الطلبات', value: stats.total, icon: Package, color: 'text-gray-600', bg: 'bg-gray-100' },
           { label: 'جديد', value: stats.new, icon: Clock, color: 'text-blue-600', bg: 'bg-blue-50' },
           { label: 'جاري التجهيز', value: stats.preparing, icon: Truck, color: 'text-orange-600', bg: 'bg-orange-50' },
-          { label: 'مشحون', value: stats.shipped, icon: CheckCircle, color: 'text-purple-600', bg: 'bg-purple-50' },
+          { label: 'جاهز', value: stats.ready, icon: PackageCheck, color: 'text-teal-600', bg: 'bg-teal-50' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="bg-white rounded-xl p-4" style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
             <div className="flex items-center gap-3">
@@ -530,8 +537,18 @@ export default function AdminOrdersPage() {
                             <Check className="w-4 h-4" />
                           </button>
                         )}
-                        {/* Ship (preparing orders only) */}
+                        {/* Mark ready (preparing orders only) */}
                         {order.status === 'preparing' && (
+                          <button
+                            onClick={() => handleMarkReady(order.id)}
+                            title="تم التجهيز - جاهز"
+                            className="p-1.5 text-teal-500 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors"
+                          >
+                            <PackageCheck className="w-4 h-4" />
+                          </button>
+                        )}
+                        {/* Ship (preparing or ready orders) */}
+                        {(order.status === 'preparing' || order.status === 'ready') && (
                           <button
                             onClick={() => openModal('ship', order)}
                             title="شحن الطلب"

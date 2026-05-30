@@ -127,7 +127,7 @@ export default function EmployeeOrdersPage() {
                         >
                           <Pencil className="w-4 h-4" />
                         </Link>
-                        {order.status !== 'delivered' && order.status !== 'cancelled' && (
+                        {order.status !== 'delivered' && order.status !== 'cancelled' && order.status !== 'ready' && (
                           <button
                             onClick={() => handleCancel(order.id)}
                             title="إلغاء الطلب"

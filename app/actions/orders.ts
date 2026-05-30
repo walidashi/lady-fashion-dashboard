@@ -102,6 +102,21 @@ export async function acceptOrder(orderId: string, estimatedDelivery: string) {
   return { success: true }
 }
 
+export async function markOrderReady(orderId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'غير مصرح' }
+
+  const { error } = await supabase
+    .from('orders')
+    .update({ status: 'ready' })
+    .eq('id', orderId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/dashboard/admin')
+  return { success: true }
+}
+
 export async function shipOrder(
   orderId: string,
   shippingCompanyId: string,

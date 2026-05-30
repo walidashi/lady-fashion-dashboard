@@ -42,7 +42,7 @@ CREATE TABLE public.orders (
   notes                TEXT DEFAULT '-',
   payment_method       TEXT NOT NULL DEFAULT 'الدفع عند الاستلام',
   status               TEXT NOT NULL DEFAULT 'new'
-                         CHECK (status IN ('new','preparing','shipped','delivered','cancelled')),
+                         CHECK (status IN ('new','preparing','ready','shipped','delivered','cancelled')),
   estimated_delivery   DATE,
   shipping_company_id  UUID REFERENCES public.shipping_companies(id),
   shipping_company_name TEXT,
