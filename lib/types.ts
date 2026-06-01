@@ -35,6 +35,7 @@ export interface Order {
   order_type: OrderType
   returned_products: string | null
   returned_products_total: number
+  migrated: boolean
   estimated_delivery: string | null
   shipping_company_id: string | null
   shipping_company_name: string | null

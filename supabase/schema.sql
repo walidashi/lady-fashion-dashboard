@@ -46,6 +46,7 @@ CREATE TABLE public.orders (
   estimated_delivery   DATE,
   shipping_company_id  UUID REFERENCES public.shipping_companies(id),
   shipping_company_name TEXT,
+  migrated             BOOLEAN NOT NULL DEFAULT false,
   source               TEXT DEFAULT 'اورجانيك',
   order_type           TEXT NOT NULL DEFAULT 'تسليم' CHECK (order_type IN ('تسليم', 'استرجاع', 'استبدال')),
   returned_products    TEXT,

@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Order, ShippingCompany, STATUS_LABELS, OrderStatus, OrderType, ORDER_TYPE_COLORS } from '@/lib/types'
 import { generateShippingExcel } from '@/lib/excel'
 import { printLabels } from '@/lib/printLabels'
-import { acceptOrder, shipOrder, deliverOrder, cancelOrder, bulkUpdateStatus, markOrderReady } from '@/app/actions/orders'
+import { acceptOrder, shipOrder, deliverOrder, cancelOrder, bulkUpdateStatus, markOrderReady, setMigrated } from '@/app/actions/orders'
 import OrderStatusBadge from '@/components/OrderStatusBadge'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
@@ -158,6 +158,11 @@ export default function AdminOrdersPage() {
       fetchOrders()
     }
     setActionLoading(false)
+  }
+
+  const handleSetMigrated = async (orderId: string, value: boolean) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, migrated: value } : o))
+    await setMigrated(orderId, value)
   }
 
   const handleMarkReady = async (orderId: string) => {
@@ -467,6 +472,7 @@ export default function AdminOrdersPage() {
                   <th className="hidden lg:table-cell px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الموظف</th>
                   <th className="hidden lg:table-cell px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">التاريخ</th>
                   <th className="px-3 md:px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الحالة</th>
+                  <th className="hidden sm:table-cell px-3 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">ترحيل</th>
                   <th className="px-3 md:px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">إجراءات</th>
                 </tr>
               </thead>
@@ -508,6 +514,19 @@ export default function AdminOrdersPage() {
                     <td className="hidden lg:table-cell px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(order.created_at)}</td>
                     <td className="px-3 md:px-4 py-3">
                       <OrderStatusBadge status={order.status} />
+                    </td>
+                    <td className="hidden sm:table-cell px-3 py-3 text-center">
+                      {order.status === 'ready' || order.migrated ? (
+                        <input
+                          type="checkbox"
+                          checked={!!order.migrated}
+                          onChange={e => handleSetMigrated(order.id, e.target.checked)}
+                          title="تم الترحيل"
+                          className="w-4 h-4 rounded cursor-pointer accent-teal-600"
+                        />
+                      ) : (
+                        <span className="text-gray-200">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
@@ -760,6 +779,16 @@ export default function AdminOrdersPage() {
                   )}
                   <Row label="الموظف" value={modal.order.created_by_name} />
                   <Row label="تاريخ الإضافة" value={formatDate(modal.order.created_at)} />
+                  {(modal.order.status === 'ready' || modal.order.migrated) && (
+                    <Row label="تم الترحيل" value={
+                      <input
+                        type="checkbox"
+                        checked={!!modal.order.migrated}
+                        onChange={e => handleSetMigrated(modal.order!.id, e.target.checked)}
+                        className="w-4 h-4 rounded cursor-pointer accent-teal-600"
+                      />
+                    } />
+                  )}
                 </div>
               </div>
             )}
