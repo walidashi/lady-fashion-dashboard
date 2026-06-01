@@ -236,6 +236,21 @@ export async function bulkImportOrders(rows: ImportOrderRow[]) {
   return { success: true, count: toInsert.length }
 }
 
+export async function bulkShipOrders(orderIds: string[], companyId: string, companyName: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'غير مصرح' }
+
+  const { error } = await supabase
+    .from('orders')
+    .update({ status: 'shipped', shipping_company_id: companyId, shipping_company_name: companyName })
+    .in('id', orderIds)
+
+  if (error) return { error: error.message }
+  revalidatePath('/dashboard/admin')
+  return { success: true }
+}
+
 export async function bulkUpdateStatus(orderIds: string[], status: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

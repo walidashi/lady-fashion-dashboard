@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Order, ShippingCompany, STATUS_LABELS, OrderStatus, OrderType, ORDER_TYPE_COLORS } from '@/lib/types'
 import { generateShippingExcel } from '@/lib/excel'
 import { printLabels } from '@/lib/printLabels'
-import { acceptOrder, shipOrder, deliverOrder, cancelOrder, bulkUpdateStatus, markOrderReady, setMigrated } from '@/app/actions/orders'
+import { acceptOrder, shipOrder, deliverOrder, cancelOrder, bulkUpdateStatus, bulkShipOrders, markOrderReady, setMigrated } from '@/app/actions/orders'
 import OrderStatusBadge from '@/components/OrderStatusBadge'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
@@ -62,6 +62,11 @@ export default function AdminOrdersPage() {
   const [deliveryDate, setDeliveryDate] = useState('')
   // Ship form state
   const [selectedCompany, setSelectedCompany] = useState<ShippingCompany | null>(null)
+  // Bulk ship modal
+  const [bulkShipOpen, setBulkShipOpen] = useState(false)
+  const [bulkShipCompany, setBulkShipCompany] = useState<ShippingCompany | null>(null)
+  const [bulkShipLoading, setBulkShipLoading] = useState(false)
+  const [bulkShipError, setBulkShipError] = useState('')
 
   const fetchOrders = useCallback(async () => {
     const { data } = await supabase
@@ -185,8 +190,26 @@ export default function AdminOrdersPage() {
 
   const handleBulkStatus = async (status: string) => {
     setBulkStatusOpen(false)
+    if (status === 'shipped') {
+      setBulkShipCompany(null)
+      setBulkShipError('')
+      setBulkShipOpen(true)
+      return
+    }
     if (!confirm(`تغيير حالة ${selected.size} طلب إلى "${BULK_STATUS_OPTIONS.find(o => o.value === status)?.label}"؟`)) return
     await bulkUpdateStatus(Array.from(selected), status)
+    setSelected(new Set())
+    fetchOrders()
+  }
+
+  const handleBulkShip = async () => {
+    if (!bulkShipCompany) return
+    setBulkShipLoading(true)
+    setBulkShipError('')
+    const result = await bulkShipOrders(Array.from(selected), bulkShipCompany.id, bulkShipCompany.name)
+    setBulkShipLoading(false)
+    if (result.error) { setBulkShipError(result.error); return }
+    setBulkShipOpen(false)
     setSelected(new Set())
     fetchOrders()
   }
@@ -606,6 +629,58 @@ export default function AdminOrdersPage() {
           </div>
         )}
       </div>
+
+      {/* ── Bulk Ship Modal ─────────────────────────────────────────────────── */}
+      {bulkShipOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={e => e.target === e.currentTarget && setBulkShipOpen(false)}
+        >
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-2 sm:mx-0">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-lg font-bold text-gray-900">شحن {selected.size} طلب</h2>
+                <button onClick={() => setBulkShipOpen(false)} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="mb-5">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  شركة الشحن <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto">
+                  {companies.map(c => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setBulkShipCompany(c)}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-right border-2 ${
+                        bulkShipCompany?.id === c.id
+                          ? 'border-purple-500 bg-purple-50 text-purple-800'
+                          : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                      }`}
+                    >
+                      <Truck className={`w-4 h-4 flex-shrink-0 ${bulkShipCompany?.id === c.id ? 'text-purple-600' : 'text-gray-400'}`} />
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {bulkShipError && <p className="error-text mb-3">{bulkShipError}</p>}
+              <div className="flex gap-3">
+                <button
+                  onClick={handleBulkShip}
+                  disabled={!bulkShipCompany || bulkShipLoading}
+                  className="flex-1 bg-purple-700 hover:bg-purple-800 disabled:opacity-60 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors text-sm"
+                >
+                  {bulkShipLoading ? 'جاري الحفظ...' : `تأكيد شحن ${selected.size} طلب`}
+                </button>
+                <button onClick={() => setBulkShipOpen(false)} className="btn-secondary">إلغاء</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Modals ──────────────────────────────────────────────────────────── */}
       {modal.type && modal.order && (
