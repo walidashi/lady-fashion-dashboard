@@ -166,7 +166,8 @@ export default function AdminOrdersPage() {
   }
 
   const handleMarkReady = async (orderId: string) => {
-    await markOrderReady(orderId)
+    const result = await markOrderReady(orderId)
+    if (result.error) { alert(result.error); return }
     fetchOrders()
   }
 
