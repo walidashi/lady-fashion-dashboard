@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Order, ShippingCompany, STATUS_LABELS, OrderStatus, OrderType, ORDER_TYPE_COLORS } from '@/lib/types'
 import { generateShippingExcel } from '@/lib/excel'
 import { printLabels } from '@/lib/printLabels'
-import { acceptOrder, shipOrder, deliverOrder, cancelOrder, bulkUpdateStatus, bulkShipOrders, markOrderReady, setMigrated } from '@/app/actions/orders'
+import { acceptOrder, shipOrder, deliverOrder, cancelOrder, bulkUpdateStatus, bulkShipOrders, markOrderReady, setMigrated, revertOrdersSnapshot } from '@/app/actions/orders'
 import OrderStatusBadge from '@/components/OrderStatusBadge'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
@@ -62,6 +62,30 @@ export default function AdminOrdersPage() {
   const [deliveryDate, setDeliveryDate] = useState('')
   // Ship form state
   const [selectedCompany, setSelectedCompany] = useState<ShippingCompany | null>(null)
+  // Undo
+  type UndoSnapshot = { id: string; status: string; shipping_company_id: string | null; shipping_company_name: string | null }
+  const [undoSnapshot, setUndoSnapshot] = useState<{ orders: UndoSnapshot[]; label: string } | null>(null)
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const saveUndo = (label: string) => {
+    const snap = orders.filter(o => selected.has(o.id)).map(o => ({
+      id: o.id, status: o.status,
+      shipping_company_id: o.shipping_company_id,
+      shipping_company_name: o.shipping_company_name,
+    }))
+    if (undoTimer.current) clearTimeout(undoTimer.current)
+    setUndoSnapshot({ orders: snap, label })
+    undoTimer.current = setTimeout(() => setUndoSnapshot(null), 8000)
+  }
+
+  const handleUndo = async () => {
+    if (!undoSnapshot) return
+    if (undoTimer.current) clearTimeout(undoTimer.current)
+    setUndoSnapshot(null)
+    await revertOrdersSnapshot(undoSnapshot.orders)
+    fetchOrders()
+  }
+
   // Bulk ship modal
   const [bulkShipOpen, setBulkShipOpen] = useState(false)
   const [bulkShipCompany, setBulkShipCompany] = useState<ShippingCompany | null>(null)
@@ -196,7 +220,9 @@ export default function AdminOrdersPage() {
       setBulkShipOpen(true)
       return
     }
-    if (!confirm(`تغيير حالة ${selected.size} طلب إلى "${BULK_STATUS_OPTIONS.find(o => o.value === status)?.label}"؟`)) return
+    const label = BULK_STATUS_OPTIONS.find(o => o.value === status)?.label ?? status
+    if (!confirm(`تغيير حالة ${selected.size} طلب إلى "${label}"؟`)) return
+    saveUndo(`${selected.size} طلب → ${label}`)
     await bulkUpdateStatus(Array.from(selected), status)
     setSelected(new Set())
     fetchOrders()
@@ -206,9 +232,10 @@ export default function AdminOrdersPage() {
     if (!bulkShipCompany) return
     setBulkShipLoading(true)
     setBulkShipError('')
+    saveUndo(`${selected.size} طلب → مشحون (${bulkShipCompany.name})`)
     const result = await bulkShipOrders(Array.from(selected), bulkShipCompany.id, bulkShipCompany.name)
     setBulkShipLoading(false)
-    if (result.error) { setBulkShipError(result.error); return }
+    if (result.error) { setBulkShipError(result.error); setUndoSnapshot(null); return }
     setBulkShipOpen(false)
     setSelected(new Set())
     fetchOrders()
@@ -629,6 +656,24 @@ export default function AdminOrdersPage() {
           </div>
         )}
       </div>
+
+      {/* ── Undo Toast ──────────────────────────────────────────────────────── */}
+      {undoSnapshot && (
+        <div className="fixed bottom-5 right-4 left-4 md:left-auto md:w-auto z-50 flex justify-center md:justify-end">
+          <div className="flex items-center gap-3 bg-gray-900 text-white px-4 py-3 rounded-xl shadow-2xl text-sm">
+            <span className="text-gray-300">{undoSnapshot.label}</span>
+            <button
+              onClick={handleUndo}
+              className="font-bold text-yellow-400 hover:text-yellow-300 transition-colors whitespace-nowrap"
+            >
+              تراجع
+            </button>
+            <button onClick={() => { if (undoTimer.current) clearTimeout(undoTimer.current); setUndoSnapshot(null) }} className="text-gray-500 hover:text-gray-300 transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Bulk Ship Modal ─────────────────────────────────────────────────── */}
       {bulkShipOpen && (

@@ -251,6 +251,29 @@ export async function bulkShipOrders(orderIds: string[], companyId: string, comp
   return { success: true }
 }
 
+export async function revertOrdersSnapshot(
+  snapshots: Array<{ id: string; status: string; shipping_company_id: string | null; shipping_company_name: string | null }>
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'غير مصرح' }
+
+  const admin = adminClient()
+  const { error } = await admin.from('orders').upsert(
+    snapshots.map(s => ({
+      id: s.id,
+      status: s.status,
+      shipping_company_id: s.shipping_company_id,
+      shipping_company_name: s.shipping_company_name,
+    })),
+    { onConflict: 'id' }
+  )
+
+  if (error) return { error: error.message }
+  revalidatePath('/dashboard/admin')
+  return { success: true }
+}
+
 export async function bulkUpdateStatus(orderIds: string[], status: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
