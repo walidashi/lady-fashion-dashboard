@@ -45,6 +45,7 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [companies, setCompanies] = useState<ShippingCompany[]>([])
   const [loading, setLoading] = useState(true)
+  const [userRole, setUserRole] = useState<string>('employee')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -103,12 +104,15 @@ export default function AdminOrdersPage() {
 
   useEffect(() => {
     fetchOrders()
-    supabase
-      .from('shipping_companies')
-      .select('*')
-      .order('name')
+    supabase.from('shipping_companies').select('*').order('name')
       .then(({ data }) => setCompanies((data ?? []) as ShippingCompany[]))
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) supabase.from('profiles').select('role').eq('id', user.id).single()
+        .then(({ data }) => setUserRole(data?.role ?? 'employee'))
+    })
   }, [fetchOrders, supabase])
+
+  const isEmployee = userRole === 'employee'
 
   const filtered = orders.filter((o) => {
     const matchStatus = statusFilter === 'all' || o.status === statusFilter
@@ -275,7 +279,7 @@ export default function AdminOrdersPage() {
           <h1 className="text-xl font-bold text-gray-900">جميع الطلبات</h1>
           <p className="text-sm text-gray-500 mt-0.5">{orders.length} طلب</p>
         </div>
-        <div className="flex gap-2">
+        {!isEmployee && <div className="flex gap-2">
           <Link
             href="/dashboard/admin/import"
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3 md:px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors"
@@ -301,7 +305,7 @@ export default function AdminOrdersPage() {
               {selected.size > 0 ? `تصدير (${selected.size})` : 'تصدير Excel'}
             </span>
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* Stats */}
@@ -432,7 +436,7 @@ export default function AdminOrdersPage() {
       </div>
 
       {/* Bulk action bar */}
-      {selected.size > 0 && (
+      {!isEmployee && selected.size > 0 && (
         <div className="bg-gray-900 text-white rounded-xl px-4 py-3 mb-4 flex items-center gap-3 shadow-lg overflow-x-auto scrollbar-thin">
           <span className="text-sm font-medium flex-1">
             {selected.size} طلب محدد
@@ -507,14 +511,14 @@ export default function AdminOrdersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="px-3 md:px-4 py-3 text-right">
+                  {!isEmployee && <th className="px-3 md:px-4 py-3 text-right">
                     <input
                       type="checkbox"
                       checked={selected.size > 0 && selected.size === filtered.length}
                       onChange={toggleAll}
                       className="rounded border-gray-300 text-pink-600 focus:ring-pink-400"
                     />
-                  </th>
+                  </th>}
                   <th className="px-3 md:px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">رقم الأوردر</th>
                   <th className="px-3 md:px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الاسم</th>
                   <th className="hidden md:table-cell px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الموبايل</th>
@@ -530,14 +534,14 @@ export default function AdminOrdersPage() {
               <tbody className="divide-y divide-gray-50">
                 {filtered.map((order) => (
                   <tr key={order.id} className={`hover:bg-gray-50/50 transition-colors ${selected.has(order.id) ? 'bg-pink-50/30' : ''}`}>
-                    <td className="px-3 md:px-4 py-3">
+                    {!isEmployee && <td className="px-3 md:px-4 py-3">
                       <input
                         type="checkbox"
                         checked={selected.has(order.id)}
                         onChange={() => toggleSelect(order.id)}
                         className="rounded border-gray-300 text-pink-600 focus:ring-pink-400"
                       />
-                    </td>
+                    </td>}
                     <td className="px-3 md:px-4 py-3">
                       <div className="font-mono font-semibold text-pink-700">{order.order_number}</div>
                       <div className="flex flex-wrap gap-1 mt-0.5">
@@ -571,9 +575,10 @@ export default function AdminOrdersPage() {
                         <input
                           type="checkbox"
                           checked={!!order.migrated}
-                          onChange={e => handleSetMigrated(order.id, e.target.checked)}
+                          onChange={e => !isEmployee && handleSetMigrated(order.id, e.target.checked)}
                           title="تم الترحيل"
-                          className="w-4 h-4 rounded cursor-pointer accent-teal-600"
+                          className={`w-4 h-4 rounded accent-teal-600 ${isEmployee ? 'cursor-default opacity-60' : 'cursor-pointer'}`}
+                          readOnly={isEmployee}
                         />
                       ) : (
                         <span className="text-gray-200">—</span>
@@ -597,43 +602,24 @@ export default function AdminOrdersPage() {
                         >
                           <Pencil className="w-4 h-4" />
                         </Link>
-                        {/* Accept (new orders only) */}
-                        {order.status === 'new' && (
-                          <button
-                            onClick={() => openModal('accept', order)}
-                            title="قبول الطلب"
-                            className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-                          >
+                        {/* Admin-only status actions */}
+                        {!isEmployee && order.status === 'new' && (
+                          <button onClick={() => openModal('accept', order)} title="قبول الطلب" className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors">
                             <Check className="w-4 h-4" />
                           </button>
                         )}
-                        {/* Mark ready (preparing orders only) */}
-                        {order.status === 'preparing' && (
-                          <button
-                            onClick={() => handleMarkReady(order.id)}
-                            title="تم التجهيز - جاهز"
-                            className="p-1.5 text-teal-500 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors"
-                          >
+                        {!isEmployee && order.status === 'preparing' && (
+                          <button onClick={() => handleMarkReady(order.id)} title="تم التجهيز - جاهز" className="p-1.5 text-teal-500 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors">
                             <PackageCheck className="w-4 h-4" />
                           </button>
                         )}
-                        {/* Ship (preparing or ready orders) */}
-                        {(order.status === 'preparing' || order.status === 'ready') && (
-                          <button
-                            onClick={() => openModal('ship', order)}
-                            title="شحن الطلب"
-                            className="p-1.5 text-purple-500 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-colors"
-                          >
+                        {!isEmployee && (order.status === 'preparing' || order.status === 'ready') && (
+                          <button onClick={() => openModal('ship', order)} title="شحن الطلب" className="p-1.5 text-purple-500 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-colors">
                             <Truck className="w-4 h-4" />
                           </button>
                         )}
-                        {/* Deliver (shipped orders) */}
-                        {order.status === 'shipped' && (
-                          <button
-                            onClick={() => handleDeliver(order.id)}
-                            title="تم التسليم"
-                            className="p-1.5 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
-                          >
+                        {!isEmployee && order.status === 'shipped' && (
+                          <button onClick={() => handleDeliver(order.id)} title="تم التسليم" className="p-1.5 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors">
                             <CheckCircle className="w-4 h-4" />
                           </button>
                         )}
