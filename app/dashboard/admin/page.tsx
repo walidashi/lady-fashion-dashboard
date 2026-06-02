@@ -451,7 +451,7 @@ export default function AdminOrdersPage() {
               <ChevronDown className="w-4 h-4" />
             </button>
             {bulkStatusOpen && (
-              <div className="absolute left-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50 min-w-[160px]">
+              <div className="absolute left-0 bottom-full mb-1 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50 min-w-[160px]">
                 {BULK_STATUS_OPTIONS.map(opt => (
                   <button
                     key={opt.value}
