@@ -567,7 +567,7 @@ export default function AdminOrdersPage() {
                       <OrderStatusBadge status={order.status} />
                     </td>
                     <td className="hidden sm:table-cell px-3 py-3 text-center">
-                      {order.status === 'ready' || order.migrated ? (
+                      {order.status === 'ready' || order.status === 'shipped' || order.migrated ? (
                         <input
                           type="checkbox"
                           checked={!!order.migrated}
@@ -900,7 +900,7 @@ export default function AdminOrdersPage() {
                   )}
                   <Row label="الموظف" value={modal.order.created_by_name} />
                   <Row label="تاريخ الإضافة" value={formatDate(modal.order.created_at)} />
-                  {(modal.order.status === 'ready' || modal.order.migrated) && (
+                  {(modal.order.status === 'ready' || modal.order.status === 'shipped' || modal.order.migrated) && (
                     <Row label="تم الترحيل" value={
                       <input
                         type="checkbox"
