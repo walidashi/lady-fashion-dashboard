@@ -40,6 +40,10 @@ Matches LadyFashion_Joker.xlsx — 14 columns right-to-left:
 - **Inputs:** `.input-field` class, `border: 1px solid rgba(0,0,0,0.12)`, focus `border-color: #be185d`
 - Tailwind config has `brand` color palette extending `pink`
 
+## Workflow Instructions
+
+- After completing any code change, always stage the relevant files, commit, and push to `origin main` automatically — do not wait to be asked.
+
 ## Setup
 
 1. Create Supabase project → copy URL + anon key to `.env.local`
