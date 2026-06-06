@@ -469,7 +469,7 @@ export default function AdminOrdersPage() {
 
       {/* Bulk action bar */}
       {!isEmployee && selected.size > 0 && (
-        <div className="bg-gray-900 text-white rounded-xl px-4 py-3 mb-4 flex items-center gap-3 shadow-lg overflow-x-auto scrollbar-thin">
+        <div className="bg-gray-900 text-white rounded-xl px-4 py-3 mb-4 flex items-center gap-3 shadow-lg flex-wrap">
           <span className="text-sm font-medium flex-1">
             {selected.size} طلب محدد
           </span>
