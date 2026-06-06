@@ -53,6 +53,8 @@ export default function AdminOrdersPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [actionError, setActionError] = useState('')
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false)
+  const [printMenuOpen, setPrintMenuOpen] = useState(false)
+  const [bulkPrintMenuOpen, setBulkPrintMenuOpen] = useState(false)
   const [sourceFilter, setSourceFilter] = useState('all')
   const [orderTypeFilter, setOrderTypeFilter] = useState('all')
   const [companyFilter, setCompanyFilter] = useState('')
@@ -254,13 +256,15 @@ export default function AdminOrdersPage() {
     generateShippingExcel(toExport)
   }
 
-  const handlePrint = () => {
+  const handlePrint = (format: 'label' | 'a4' = 'label') => {
     const toPrint =
       selected.size > 0
         ? orders.filter((o) => selected.has(o.id))
         : filtered
     if (toPrint.length === 0) return
-    printLabels(toPrint)
+    printLabels(toPrint, format)
+    setPrintMenuOpen(false)
+    setBulkPrintMenuOpen(false)
   }
 
   if (loading) {
@@ -287,15 +291,43 @@ export default function AdminOrdersPage() {
             <FileUp className="w-4 h-4" />
             <span className="hidden sm:inline">استيراد Excel</span>
           </Link>
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-2 bg-gray-800 hover:bg-gray-900 text-white px-3 md:px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors"
-          >
-            <Printer className="w-4 h-4" />
-            <span className="hidden sm:inline">
-              {selected.size > 0 ? `طباعة (${selected.size})` : 'طباعة Labels'}
-            </span>
-          </button>
+          <div className="relative">
+            <div className="flex rounded-lg overflow-visible">
+              <button
+                onClick={() => handlePrint('label')}
+                className="flex items-center gap-2 bg-gray-800 hover:bg-gray-900 text-white px-3 md:px-4 py-2.5 text-sm font-semibold transition-colors rounded-r-lg"
+              >
+                <Printer className="w-4 h-4" />
+                <span className="hidden sm:inline">
+                  {selected.size > 0 ? `طباعة (${selected.size})` : 'طباعة Labels'}
+                </span>
+              </button>
+              <button
+                onClick={() => setPrintMenuOpen(v => !v)}
+                className="flex items-center px-2 py-2.5 bg-gray-700 hover:bg-gray-600 text-white border-r border-gray-600 text-sm transition-colors rounded-l-lg"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {printMenuOpen && (
+              <div className="absolute left-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50 min-w-[150px]">
+                <button
+                  onClick={() => handlePrint('label')}
+                  className="w-full text-right px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 font-medium transition-colors flex items-center gap-2"
+                >
+                  <Printer className="w-4 h-4 text-gray-500" />
+                  ملصق 4×6
+                </button>
+                <button
+                  onClick={() => handlePrint('a4')}
+                  className="w-full text-right px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 font-medium transition-colors flex items-center gap-2"
+                >
+                  <Printer className="w-4 h-4 text-gray-500" />
+                  A4 (2×2)
+                </button>
+              </div>
+            )}
+          </div>
           <button
             onClick={handleExport}
             className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-3 md:px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors"
@@ -465,13 +497,34 @@ export default function AdminOrdersPage() {
             )}
           </div>
           {/* Bulk print */}
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-2 bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-xl text-sm font-medium transition-colors"
-          >
-            <Printer className="w-4 h-4" />
-            طباعة Labels
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setBulkPrintMenuOpen(v => !v)}
+              className="flex items-center gap-2 bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+            >
+              <Printer className="w-4 h-4" />
+              طباعة
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+            {bulkPrintMenuOpen && (
+              <div className="absolute left-0 top-full mt-1 bg-white text-gray-800 rounded-xl shadow-xl border border-gray-100 py-1 z-50 min-w-[150px]">
+                <button
+                  onClick={() => handlePrint('label')}
+                  className="w-full text-right px-4 py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors flex items-center gap-2"
+                >
+                  <Printer className="w-4 h-4 text-gray-500" />
+                  ملصق 4×6
+                </button>
+                <button
+                  onClick={() => handlePrint('a4')}
+                  className="w-full text-right px-4 py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors flex items-center gap-2"
+                >
+                  <Printer className="w-4 h-4 text-gray-500" />
+                  A4 (2×2)
+                </button>
+              </div>
+            )}
+          </div>
           {/* Bulk export */}
           <button
             onClick={handleExport}

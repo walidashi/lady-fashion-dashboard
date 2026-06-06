@@ -24,31 +24,25 @@ async function logoBase64(): Promise<string> {
   }
 }
 
-export async function printLabels(orders: Order[]) {
-  const logo = await logoBase64()
+function buildLabelHtml(order: Order, logo: string): string {
+  const hub = hubLabel(order.order_number)
+  const orderTypeLabel = order.order_type ?? 'تسليم'
+  const cod = Number(order.remaining) || 0
+  const codText = cod < 0
+    ? `مبلغ مسترد: ${Math.abs(cod).toLocaleString('ar-EG')} ج.م`
+    : `مبلغ التحصيل: ${cod.toLocaleString('ar-EG')} ج.م`
+  const date = new Date(order.created_at).toLocaleDateString('ar-EG')
 
-  const labelsHtml = orders
-    .map((order) => {
-      const hub = hubLabel(order.order_number)
-      const orderTypeLabel = order.order_type ?? 'تسليم'
-      const cod = Number(order.remaining) || 0
-      const codText = cod < 0
-        ? `مبلغ مسترد: ${Math.abs(cod).toLocaleString('ar-EG')} ج.م`
-        : `مبلغ التحصيل: ${cod.toLocaleString('ar-EG')} ج.م`
-      const date = new Date(order.created_at).toLocaleDateString('ar-EG')
+  let productsText: string
+  if (orderTypeLabel === 'استبدال' && order.returned_products) {
+    const outgoing = order.products.replace(/\n\n+/g, ' | ').replace(/\n/g, ' ')
+    const incoming = order.returned_products.replace(/\n\n+/g, ' | ').replace(/\n/g, ' ')
+    productsText = `صادر: ${outgoing} || مرتجع: ${incoming}`
+  } else {
+    productsText = order.products.replace(/\n\n+/g, ' | ').replace(/\n/g, ' ')
+  }
 
-      let productsText: string
-      if (orderTypeLabel === 'استبدال' && order.returned_products) {
-        const outgoing = order.products.replace(/\n\n+/g, ' | ').replace(/\n/g, ' ')
-        const incoming = order.returned_products.replace(/\n\n+/g, ' | ').replace(/\n/g, ' ')
-        productsText = `صادر: ${outgoing} || مرتجع: ${incoming}`
-      } else {
-        productsText = order.products.replace(/\n\n+/g, ' | ').replace(/\n/g, ' ')
-      }
-
-      return `
-<div class="bol">
-<div class="label">
+  return `
   <div class="header">
     <div class="header-logo">${logo ? `<img src="${logo}" alt="logo">` : ''}</div>
     <div class="header-type">${orderTypeLabel}</div>
@@ -91,49 +85,96 @@ export async function printLabels(orders: Order[]) {
       </div>
     </div>
     <div class="created-bar">Created: ${date}</div>
-  </div>
-</div>
-</div>`
-    })
-    .join('\n')
+  </div>`
+}
 
-  const css = `
-@page { size: 101.6mm 152.4mm; margin: 0; }
+const SHARED_CSS = `
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: Arial, Tahoma, sans-serif; direction: rtl; }
-.bol { width: 101.6mm; height: 152.4mm; page-break-after: always; }
-.label { position: relative; width: 100%; height: 152.4mm; border: 3px solid #000; overflow: hidden; }
-.header { border-bottom: 2.5px solid #000; padding: 2mm 2.5mm; min-height: 16mm; overflow: hidden; }
+.label { position: relative; width: 100%; height: 100%; border: 2px solid #000; overflow: hidden; }
+.header { border-bottom: 2px solid #000; padding: 2mm 2.5mm; min-height: 16mm; overflow: hidden; }
 .header-logo { float: left; line-height: 0; }
 .header-logo img { height: 13mm; max-width: 32mm; object-fit: contain; }
 .header-type { float: right; font-size: 18pt; font-weight: bold; line-height: 13mm; }
 .header-hub { text-align: center; font-size: 8pt; font-weight: bold; line-height: 13mm; }
-.cod-row { border-bottom: 2.5px solid #000; padding: 2.5mm 3mm; text-align: right; }
+.cod-row { border-bottom: 2px solid #000; padding: 2.5mm 3mm; text-align: right; }
 .cod-amount { font-size: 13pt; font-weight: bold; }
-.info-table { display: table; width: 100%; border-bottom: 2.5px solid #000; min-height: 22mm; }
-.merchant-cell { display: table-cell; width: 28mm; border-left: 2.5px solid #000; vertical-align: middle; text-align: center; padding: 2mm 1.5mm; }
+.info-table { display: table; width: 100%; border-bottom: 2px solid #000; min-height: 22mm; }
+.merchant-cell { display: table-cell; width: 28mm; border-left: 2px solid #000; vertical-align: middle; text-align: center; padding: 2mm 1.5mm; }
 .merchant-cell .lbl { font-size: 7.5pt; font-weight: bold; display: block; margin-bottom: 1mm; }
 .merchant-cell .val { font-size: 8pt; display: block; }
 .recipient-cell { display: table-cell; vertical-align: middle; padding: 2.5mm 3mm; text-align: right; }
 .recipient-cell .lbl { font-size: 7.5pt; font-weight: bold; display: block; margin-bottom: 1mm; }
 .recipient-name { font-size: 12pt; font-weight: bold; line-height: 1.25; }
 .recipient-phone { font-size: 9.5pt; margin-top: 1mm; display: block; }
-.address-row { border-bottom: 2.5px solid #000; padding: 2mm 3mm; text-align: right; font-size: 8pt; line-height: 1.45; }
+.address-row { border-bottom: 2px solid #000; padding: 2mm 3mm; text-align: right; font-size: 8pt; line-height: 1.45; }
 .address-row .lbl { font-weight: bold; }
-.shipment-row { padding: 2.5mm 3mm; text-align: right; padding-bottom: 30mm; }
+.shipment-row { padding: 2.5mm 3mm; text-align: right; padding-bottom: 26mm; }
 .badges { margin-bottom: 2mm; text-align: right; }
 .badge { display: inline-block; border: 2px solid #000; border-radius: 3mm; padding: 0.5mm 2.5mm; font-size: 7.5pt; margin-right: 1.5mm; }
 .desc { font-size: 8pt; line-height: 1.4; }
 .desc .lbl { font-weight: bold; }
-.footer { position: absolute; bottom: 0; left: 0; right: 0; border-top: 2.5px solid #000; background: #fff; }
-.footer-table { display: table; width: 100%; height: 20mm; }
-.tracking-cell { display: table-cell; width: 42%; border-left: 2.5px solid #000; vertical-align: middle; padding: 2mm; direction: ltr; }
+.footer { position: absolute; bottom: 0; left: 0; right: 0; border-top: 2px solid #000; background: #fff; }
+.footer-table { display: table; width: 100%; height: 18mm; }
+.tracking-cell { display: table-cell; width: 42%; border-left: 2px solid #000; vertical-align: middle; padding: 2mm; direction: ltr; }
 .tracking-lbl { font-size: 6pt; color: #555; display: block; margin-bottom: 1mm; }
 .tracking-val { font-size: 10pt; font-weight: bold; word-break: break-all; }
 .notes-cell { display: table-cell; vertical-align: middle; padding: 2mm 2.5mm; text-align: right; font-size: 8.5pt; }
 .notes-cell .lbl { font-weight: bold; }
-.created-bar { border-top: 2px solid #000; text-align: center; font-size: 7pt; color: #444; padding: 2mm; }
+.created-bar { border-top: 1.5px solid #000; text-align: center; font-size: 7pt; color: #444; padding: 1.5mm; }
 `
+
+const LABEL_CSS = `
+@page { size: 101.6mm 152.4mm; margin: 0; }
+${SHARED_CSS}
+.bol { width: 101.6mm; height: 152.4mm; page-break-after: always; }
+`
+
+const A4_CSS = `
+@page { size: A4 portrait; margin: 0; }
+${SHARED_CSS}
+.page {
+  width: 210mm; height: 297mm;
+  display: grid;
+  grid-template-columns: 105mm 105mm;
+  grid-template-rows: 148.5mm 148.5mm;
+  page-break-after: always;
+  overflow: hidden;
+}
+.cell {
+  width: 105mm; height: 148.5mm;
+  padding: 1.5mm;
+  border: 0.5px dashed #bbb;
+  overflow: hidden;
+}
+`
+
+export async function printLabels(orders: Order[], format: 'label' | 'a4' = 'label') {
+  const logo = await logoBase64()
+
+  let bodyHtml: string
+  let css: string
+
+  if (format === 'a4') {
+    css = A4_CSS
+    const pages: Order[][] = []
+    for (let i = 0; i < orders.length; i += 4) {
+      pages.push(orders.slice(i, i + 4))
+    }
+    bodyHtml = pages.map((page) => {
+      const cells = page.map((order) =>
+        `<div class="cell"><div class="label">${buildLabelHtml(order, logo)}</div></div>`
+      )
+      // fill remaining cells on last page so grid stays intact
+      while (cells.length < 4) cells.push('<div class="cell"></div>')
+      return `<div class="page">${cells.join('\n')}</div>`
+    }).join('\n')
+  } else {
+    css = LABEL_CSS
+    bodyHtml = orders.map((order) =>
+      `<div class="bol"><div class="label">${buildLabelHtml(order, logo)}</div></div>`
+    ).join('\n')
+  }
 
   const html = `<!DOCTYPE html>
 <html lang="ar">
@@ -142,7 +183,7 @@ body { font-family: Arial, Tahoma, sans-serif; direction: rtl; }
 <style>${css}</style>
 </head>
 <body>
-${labelsHtml}
+${bodyHtml}
 <script>window.onload = function() { window.print(); }<\/script>
 </body>
 </html>`
