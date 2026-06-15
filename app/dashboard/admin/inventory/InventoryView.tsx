@@ -67,10 +67,10 @@ function ProductCard({ product }: { product: InventoryProduct }) {
                     .map(v => (
                       <span
                         key={v.id}
-                        className={`px-2 py-0.5 rounded-md border text-xs font-medium ${stockColor(v.total_qty)}`}
-                        title={`مخزن: ${v.warehouse_qty} | حرام: ${v.haram_qty}`}
+                        className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-xs font-medium ${stockColor(v.total_qty)}`}
                       >
-                        {v.size}
+                        <span className="opacity-70">{v.size}</span>
+                        <span className="font-bold">{v.total_qty}</span>
                       </span>
                     ))}
                 </div>
@@ -177,7 +177,6 @@ export default function InventoryView({ products, error }: Props) {
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-red-400" /> نفد
           </span>
-          <span className="mr-auto italic text-[11px]">مرر على الحجم لتفاصيل الفروع</span>
         </div>
       )}
 
