@@ -1,5 +1,4 @@
 const ENDPOINT = 'https://lady-fashion-app-production.up.railway.app/api/public/inventory'
-const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 
 export interface InventoryVariant {
   id: number
@@ -20,18 +19,7 @@ export interface InventoryProduct {
   variants: InventoryVariant[]
 }
 
-interface Cache {
-  data: InventoryProduct[]
-  fetchedAt: number
-}
-
-let _cache: Cache | null = null
-
 export async function getInventory(): Promise<InventoryProduct[]> {
-  if (_cache && Date.now() - _cache.fetchedAt < CACHE_TTL_MS) {
-    return _cache.data
-  }
-
   const apiKey = process.env.INVENTORY_API_KEY
   if (!apiKey) {
     throw new Error('INVENTORY_API_KEY environment variable is not set')
@@ -41,7 +29,7 @@ export async function getInventory(): Promise<InventoryProduct[]> {
   try {
     response = await fetch(ENDPOINT, {
       headers: { 'X-API-Key': apiKey },
-      cache: 'no-store',
+      next: { revalidate: 300, tags: ['inventory'] },
     })
   } catch (err) {
     throw new Error(`Inventory API network error: ${err instanceof Error ? err.message : String(err)}`)
@@ -51,9 +39,7 @@ export async function getInventory(): Promise<InventoryProduct[]> {
     throw new Error(`Inventory API returned ${response.status}: ${response.statusText}`)
   }
 
-  const data: InventoryProduct[] = await response.json()
-  _cache = { data, fetchedAt: Date.now() }
-  return data
+  return response.json()
 }
 
 export async function getProductStock(productCode: string): Promise<number | null> {
