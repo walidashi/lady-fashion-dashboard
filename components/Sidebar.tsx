@@ -16,6 +16,7 @@ interface Props {
 
 const employeeLinks = [
   { href: '/dashboard/employee', icon: Package, label: 'طلباتي', exact: true },
+  { href: '/dashboard/admin', icon: LayoutDashboard, label: 'جميع الطلبات', exact: true },
   { href: '/dashboard/admin/inventory', icon: Boxes, label: 'المخزون', exact: false },
   { href: '/dashboard/employee/new-order', icon: Plus, label: 'إضافة طلب', exact: false },
 ]
