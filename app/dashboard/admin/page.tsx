@@ -141,6 +141,25 @@ export default function AdminOrdersPage() {
     total: orders.length,
   }
 
+  // Shipping company breakdown — computed from loaded orders
+  const companyStats = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; shipped: number; delivered: number; cancelled: number; total: number }>()
+    for (const order of orders) {
+      if (!order.shipping_company_id || !order.shipping_company_name) continue
+      const prev = map.get(order.shipping_company_id) ?? {
+        id: order.shipping_company_id,
+        name: order.shipping_company_name,
+        shipped: 0, delivered: 0, cancelled: 0, total: 0,
+      }
+      prev.total++
+      if (order.status === 'shipped')   prev.shipped++
+      if (order.status === 'delivered') prev.delivered++
+      if (order.status === 'cancelled') prev.cancelled++
+      map.set(order.shipping_company_id, prev)
+    }
+    return Array.from(map.values()).sort((a, b) => b.total - a.total)
+  }, [orders])
+
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev)
@@ -361,6 +380,44 @@ export default function AdminOrdersPage() {
           </div>
         ))}
       </div>
+
+      {/* Shipping company summaries */}
+      {!isEmployee && companyStats.length > 0 && (
+        <div className="mb-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-0.5">ملخص شركات الشحن</p>
+          <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-thin">
+            {companyStats.map(c => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setCompanyFilter(prev => prev === c.id ? '' : c.id)}
+                className={`flex-shrink-0 bg-white rounded-xl p-4 text-right transition-all ${
+                  companyFilter === c.id
+                    ? 'ring-2 ring-pink-500 shadow-md'
+                    : 'hover:shadow-md'
+                }`}
+                style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: companyFilter === c.id ? undefined : '0 1px 4px rgba(0,0,0,0.04)', minWidth: '160px' }}
+              >
+                <p className="text-sm font-semibold text-gray-800 mb-3 truncate">{c.name}</p>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <p className="text-xl font-bold text-purple-600">{c.shipped}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">في الطريق</p>
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-emerald-600">{c.delivered}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">تم التسليم</p>
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-gray-400">{c.total}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">الإجمالي</p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-xl p-3 md:p-4 mb-4 flex flex-col gap-3" style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
