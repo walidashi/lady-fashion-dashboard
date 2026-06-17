@@ -149,10 +149,10 @@ export default function AdminOrdersPage() {
       const prev = map.get(order.shipping_company_id) ?? {
         id: order.shipping_company_id,
         name: order.shipping_company_name,
-        shipped: 0, delivered: 0, cancelled: 0, total: 0,
+        shipped: 0, delivered: 0, cancelled: 0, total: 0, shippedValue: 0,
       }
       prev.total++
-      if (order.status === 'shipped')   prev.shipped++
+      if (order.status === 'shipped')   { prev.shipped++; prev.shippedValue += Number(order.total) }
       if (order.status === 'delivered') prev.delivered++
       if (order.status === 'cancelled') prev.cancelled++
       map.set(order.shipping_company_id, prev)
@@ -399,7 +399,7 @@ export default function AdminOrdersPage() {
                 style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: companyFilter === c.id ? undefined : '0 1px 4px rgba(0,0,0,0.04)', minWidth: '160px' }}
               >
                 <p className="text-sm font-semibold text-gray-800 mb-3 truncate">{c.name}</p>
-                <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="grid grid-cols-3 gap-2 text-center mb-3">
                   <div>
                     <p className="text-xl font-bold text-purple-600">{c.shipped}</p>
                     <p className="text-[10px] text-gray-400 mt-0.5">في الطريق</p>
@@ -413,6 +413,12 @@ export default function AdminOrdersPage() {
                     <p className="text-[10px] text-gray-400 mt-0.5">الإجمالي</p>
                   </div>
                 </div>
+                {c.shipped > 0 && (
+                  <div className="border-t border-gray-100 pt-2 text-center">
+                    <p className="text-sm font-bold text-purple-700">{c.shippedValue.toLocaleString('ar-EG')} ج.م</p>
+                    <p className="text-[10px] text-gray-400">قيمة المشحونات</p>
+                  </div>
+                )}
               </button>
             ))}
           </div>
