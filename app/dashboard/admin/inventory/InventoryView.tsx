@@ -67,7 +67,8 @@ function ProductCard({ product }: { product: InventoryProduct }) {
                     .map(v => (
                       <span
                         key={v.id}
-                        className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-xs font-medium ${stockColor(v.total_qty)}`}
+                        title={`مخزن: ${v.warehouse_qty} | الهرم: ${v.haram_qty}`}
+                        className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-xs font-medium cursor-default ${stockColor(v.total_qty)}`}
                       >
                         <span className="opacity-70">{v.size}</span>
                         <span className="font-bold">{v.total_qty}</span>
