@@ -143,7 +143,8 @@ export default function AdminOrdersPage() {
 
   // Shipping company breakdown — computed from loaded orders
   const companyStats = useMemo(() => {
-    const map = new Map<string, { id: string; name: string; shipped: number; delivered: number; cancelled: number; total: number }>()
+    type CompanyStat = { id: string; name: string; shipped: number; delivered: number; cancelled: number; total: number; shippedValue: number }
+    const map = new Map<string, CompanyStat>()
     for (const order of orders) {
       if (!order.shipping_company_id || !order.shipping_company_name) continue
       const prev = map.get(order.shipping_company_id) ?? {
