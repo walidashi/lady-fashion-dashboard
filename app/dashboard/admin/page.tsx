@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Order, ShippingCompany, STATUS_LABELS, OrderStatus, OrderType, ORDER_TYPE_COLORS } from '@/lib/types'
+import { Order, ShippingCompany, STATUS_LABELS, OrderStatus, OrderType, ORDER_TYPE_COLORS, OrderStatusLog } from '@/lib/types'
 import { generateShippingExcel } from '@/lib/excel'
 import { printLabels } from '@/lib/printLabels'
 import { acceptOrder, shipOrder, deliverOrder, cancelOrder, bulkUpdateStatus, bulkShipOrders, markOrderReady, setMigrated, revertOrdersSnapshot } from '@/app/actions/orders'
@@ -52,6 +52,8 @@ export default function AdminOrdersPage() {
   const [modal, setModal] = useState<ModalState>({ type: null, order: null })
   const [actionLoading, setActionLoading] = useState(false)
   const [actionError, setActionError] = useState('')
+  const [orderLogs, setOrderLogs] = useState<OrderStatusLog[]>([])
+  const [logsLoading, setLogsLoading] = useState(false)
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false)
   const [printMenuOpen, setPrintMenuOpen] = useState(false)
   const [bulkPrintMenuOpen, setBulkPrintMenuOpen] = useState(false)
@@ -177,16 +179,29 @@ export default function AdminOrdersPage() {
     }
   }
 
-  const openModal = (type: ModalType, order: Order) => {
+  const openModal = async (type: ModalType, order: Order) => {
     setModal({ type, order })
     setActionError('')
     setDeliveryDate('')
     setSelectedCompany(null)
+    setOrderLogs([])
+
+    if (type === 'detail') {
+      setLogsLoading(true)
+      const { data } = await supabase
+        .from('order_status_logs')
+        .select('*')
+        .eq('order_id', order.id)
+        .order('created_at', { ascending: true })
+      setOrderLogs((data ?? []) as OrderStatusLog[])
+      setLogsLoading(false)
+    }
   }
 
   const closeModal = () => {
     setModal({ type: null, order: null })
     setActionError('')
+    setOrderLogs([])
   }
 
   const handleAccept = async () => {
@@ -1013,6 +1028,54 @@ export default function AdminOrdersPage() {
                       />
                     } />
                   )}
+
+                  {/* Status timeline */}
+                  <div className="border-t border-gray-100 pt-4 mt-2">
+                    <p className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-gray-400" />
+                      سجل الحالة
+                    </p>
+                    {logsLoading ? (
+                      <p className="text-xs text-gray-400">جاري التحميل...</p>
+                    ) : orderLogs.length === 0 ? (
+                      <p className="text-xs text-gray-400 italic">لا يوجد سجل بعد</p>
+                    ) : (
+                      <div className="space-y-0">
+                        {orderLogs.map((log, i) => (
+                          <div key={log.id} className="flex gap-3">
+                            <div className="flex flex-col items-center pt-0.5">
+                              <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                                log.to_status === 'new'       ? 'bg-blue-400' :
+                                log.to_status === 'preparing' ? 'bg-orange-400' :
+                                log.to_status === 'ready'     ? 'bg-teal-400' :
+                                log.to_status === 'shipped'   ? 'bg-purple-400' :
+                                log.to_status === 'delivered' ? 'bg-green-400' :
+                                'bg-red-400'
+                              }`} />
+                              {i < orderLogs.length - 1 && (
+                                <div className="w-px flex-1 bg-gray-100 my-1 min-h-[16px]" />
+                              )}
+                            </div>
+                            <div className="pb-3 flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-1 text-xs">
+                                {log.from_status && (
+                                  <>
+                                    <span className="text-gray-500">{STATUS_LABELS[log.from_status as OrderStatus] ?? log.from_status}</span>
+                                    <span className="text-gray-300">←</span>
+                                  </>
+                                )}
+                                <span className="font-semibold text-gray-800">{STATUS_LABELS[log.to_status as OrderStatus] ?? log.to_status}</span>
+                                {log.note && <span className="text-gray-400">({log.note})</span>}
+                              </div>
+                              <p className="text-[11px] text-gray-400 mt-0.5">
+                                {log.changed_by_name} · {formatDate(log.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

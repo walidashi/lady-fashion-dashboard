@@ -84,6 +84,18 @@ export const PAYMENT_METHODS = [
   'مدفوع مسبقاً',
 ]
 
+export interface OrderStatusLog {
+  id: string
+  order_id: string
+  order_number: string
+  from_status: string | null
+  to_status: string
+  changed_by: string | null
+  changed_by_name: string
+  note: string | null
+  created_at: string
+}
+
 export function formatProductItems(items: ProductItem[]): string {
   return items
     .map(
