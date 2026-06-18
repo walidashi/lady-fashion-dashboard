@@ -53,19 +53,30 @@ const STATUS_LABELS_AR: Record<string, string> = {
   shipped: 'مشحون', delivered: 'تم التسليم', cancelled: 'ملغي',
 }
 
-async function notifyOrderOwner(params: {
-  createdBy: string; orderNumber: string; toStatus: string; note?: string
-}) {
+async function sendPush(userId: string, title: string, body: string) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) return
-  const statusLabel = STATUS_LABELS_AR[params.toStatus] ?? params.toStatus
-  const body = params.note ? `${statusLabel} · ${params.note}` : statusLabel
   await fetch(`${url}/functions/v1/send-push-notification`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ user_id: params.createdBy, title: `أوردر #${params.orderNumber}`, body }),
+    body: JSON.stringify({ user_id: userId, title, body }),
   }).catch(() => {})
+}
+
+async function notifyOrderOwner(params: {
+  createdBy: string; orderNumber: string; toStatus: string; note?: string
+}) {
+  const statusLabel = STATUS_LABELS_AR[params.toStatus] ?? params.toStatus
+  const body = params.note ? `${statusLabel} · ${params.note}` : statusLabel
+  await sendPush(params.createdBy, `أوردر #${params.orderNumber}`, body)
+}
+
+async function notifyAllAdmins(title: string, body: string) {
+  const admin = adminClient()
+  const { data: admins } = await admin.from('profiles').select('id').eq('role', 'admin')
+  if (!admins?.length) return
+  await Promise.all(admins.map(a => sendPush(a.id, title, body)))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -126,6 +137,12 @@ export async function createOrder(payload: CreateOrderPayload) {
     fromStatus: null, toStatus: 'new',
     userId: user.id, userName,
   })
+
+  const total = payload.total.toLocaleString('ar-EG')
+  await notifyAllAdmins(
+    `طلب جديد #${inserted.order_number}`,
+    `${payload.customer_name} · ${total} ج.م · بواسطة ${userName}`
+  )
 
   revalidatePath('/dashboard/employee')
   return { success: true }
