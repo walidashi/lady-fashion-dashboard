@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Lady Fashion",
+    "slug": "lady-fashion",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "lady-fashion",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.ladyfashion.orders"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#be185d"
+      },
+      "package": "com.ladyfashion.orders",
+      "googleServicesFile": "./google-services.json"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#be185d"
+        }
+      ],
+      "expo-font",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

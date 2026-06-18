@@ -42,10 +42,30 @@ async function fetchOrderMeta(orderId: string) {
   const admin = adminClient()
   const { data } = await admin
     .from('orders')
-    .select('order_number, status')
+    .select('order_number, status, created_by')
     .eq('id', orderId)
     .single()
-  return data as { order_number: string; status: string } | null
+  return data as { order_number: string; status: string; created_by: string } | null
+}
+
+const STATUS_LABELS_AR: Record<string, string> = {
+  new: 'جديد', preparing: 'جاري التجهيز', ready: 'جاهز',
+  shipped: 'مشحون', delivered: 'تم التسليم', cancelled: 'ملغي',
+}
+
+async function notifyOrderOwner(params: {
+  createdBy: string; orderNumber: string; toStatus: string; note?: string
+}) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return
+  const statusLabel = STATUS_LABELS_AR[params.toStatus] ?? params.toStatus
+  const body = params.note ? `${statusLabel} · ${params.note}` : statusLabel
+  await fetch(`${url}/functions/v1/send-push-notification`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+    body: JSON.stringify({ user_id: params.createdBy, title: `أوردر #${params.orderNumber}`, body }),
+  }).catch(() => {})
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -141,7 +161,10 @@ export async function acceptOrder(orderId: string, estimatedDelivery: string) {
 
   if (error) return { error: error.message }
 
-  if (meta) await logChange({ orderId, orderNumber: meta.order_number, fromStatus: meta.status, toStatus: 'preparing', userId: user.id, userName })
+  if (meta) {
+    await logChange({ orderId, orderNumber: meta.order_number, fromStatus: meta.status, toStatus: 'preparing', userId: user.id, userName })
+    await notifyOrderOwner({ createdBy: meta.created_by, orderNumber: meta.order_number, toStatus: 'preparing' })
+  }
 
   revalidatePath('/dashboard/admin')
   return { success: true }
@@ -196,7 +219,10 @@ export async function shipOrder(orderId: string, shippingCompanyId: string, ship
 
   if (error) return { error: error.message }
 
-  if (meta) await logChange({ orderId, orderNumber: meta.order_number, fromStatus: meta.status, toStatus: 'shipped', userId: user.id, userName, note: shippingCompanyName })
+  if (meta) {
+    await logChange({ orderId, orderNumber: meta.order_number, fromStatus: meta.status, toStatus: 'shipped', userId: user.id, userName, note: shippingCompanyName })
+    await notifyOrderOwner({ createdBy: meta.created_by, orderNumber: meta.order_number, toStatus: 'shipped', note: shippingCompanyName })
+  }
 
   revalidatePath('/dashboard/admin')
   return { success: true }
@@ -216,7 +242,10 @@ export async function deliverOrder(orderId: string) {
 
   if (error) return { error: error.message }
 
-  if (meta) await logChange({ orderId, orderNumber: meta.order_number, fromStatus: meta.status, toStatus: 'delivered', userId: user.id, userName })
+  if (meta) {
+    await logChange({ orderId, orderNumber: meta.order_number, fromStatus: meta.status, toStatus: 'delivered', userId: user.id, userName })
+    await notifyOrderOwner({ createdBy: meta.created_by, orderNumber: meta.order_number, toStatus: 'delivered' })
+  }
 
   revalidatePath('/dashboard/admin')
   return { success: true }
@@ -236,7 +265,10 @@ export async function cancelOrder(orderId: string) {
 
   if (error) return { error: error.message }
 
-  if (meta) await logChange({ orderId, orderNumber: meta.order_number, fromStatus: meta.status, toStatus: 'cancelled', userId: user.id, userName })
+  if (meta) {
+    await logChange({ orderId, orderNumber: meta.order_number, fromStatus: meta.status, toStatus: 'cancelled', userId: user.id, userName })
+    await notifyOrderOwner({ createdBy: meta.created_by, orderNumber: meta.order_number, toStatus: 'cancelled' })
+  }
 
   revalidatePath('/dashboard/admin')
   revalidatePath('/dashboard/employee')
