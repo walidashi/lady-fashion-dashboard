@@ -29,7 +29,8 @@
         }
       ],
       "expo-font",
-      "expo-secure-store"
+      "expo-secure-store",
+      "react-native-edge-to-edge"
     ],
     "experiments": {
       "typedRoutes": true
