@@ -17,8 +17,7 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#be185d"
       },
-      "package": "com.ladyfashion.orders",
-      "googleServicesFile": "./google-services.json"
+      "package": "com.ladyfashion.orders"
     },
     "plugins": [
       "expo-router",
