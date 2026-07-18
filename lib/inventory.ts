@@ -1,4 +1,17 @@
-const ENDPOINT = 'https://lady-fashion-app-production.up.railway.app/api/public/inventory'
+const BASE = 'https://lady-fashion-app-production.up.railway.app'
+const ENDPOINT = `${BASE}/api/public/inventory`
+const LOCATIONS_ENDPOINT = `${BASE}/api/locations`
+
+export interface InventoryLocation {
+  id: number
+  name: string
+  is_default: boolean
+}
+
+export interface InventoryStock {
+  location_id: number
+  qty: number
+}
 
 export interface InventoryVariant {
   id: number
@@ -7,6 +20,7 @@ export interface InventoryVariant {
   warehouse_qty: number
   haram_qty: number
   total_qty: number
+  stocks?: InventoryStock[]
 }
 
 export interface InventoryProduct {
@@ -40,6 +54,21 @@ export async function getInventory(): Promise<InventoryProduct[]> {
   }
 
   return response.json()
+}
+
+export async function getLocations(): Promise<InventoryLocation[]> {
+  const apiKey = process.env.INVENTORY_API_KEY
+  if (!apiKey) return []
+  try {
+    const res = await fetch(LOCATIONS_ENDPOINT, {
+      headers: { 'X-API-Key': apiKey },
+      next: { revalidate: 300 },
+    })
+    if (!res.ok) return []
+    return res.json()
+  } catch {
+    return []
+  }
 }
 
 export async function getProductStock(productCode: string): Promise<number | null> {

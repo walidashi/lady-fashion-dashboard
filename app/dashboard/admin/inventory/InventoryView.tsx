@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useMemo, useTransition } from 'react'
-import { InventoryProduct } from '@/lib/inventory'
+import { InventoryProduct, InventoryLocation } from '@/lib/inventory'
 import { refreshInventory } from '@/app/actions/inventory'
 import { Search, RefreshCw, Package, AlertTriangle } from 'lucide-react'
 
 interface Props {
   products: InventoryProduct[]
+  locations: InventoryLocation[]
   error: string | null
 }
 
@@ -18,7 +19,7 @@ function stockColor(qty: number) {
 
 const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL']
 
-function ProductCard({ product }: { product: InventoryProduct }) {
+function ProductCard({ product, locationMap }: { product: InventoryProduct; locationMap: Map<number, string> }) {
   const byColor = useMemo(() => {
     const map = new Map<string, typeof product.variants>()
     for (const v of product.variants) {
@@ -67,7 +68,11 @@ function ProductCard({ product }: { product: InventoryProduct }) {
                     .map(v => (
                       <span
                         key={v.id}
-                        title={`مخزن: ${v.warehouse_qty} | الهرم: ${v.haram_qty}`}
+                        title={
+                          v.stocks?.length
+                            ? v.stocks.map(s => `${locationMap.get(s.location_id) ?? `#${s.location_id}`}: ${s.qty}`).join(' | ')
+                            : `مخزن: ${v.warehouse_qty} | الهرم: ${v.haram_qty}`
+                        }
                         className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-xs font-medium cursor-default ${stockColor(v.total_qty)}`}
                       >
                         <span className="opacity-70">{v.size}</span>
@@ -84,9 +89,14 @@ function ProductCard({ product }: { product: InventoryProduct }) {
   )
 }
 
-export default function InventoryView({ products, error }: Props) {
+export default function InventoryView({ products, locations, error }: Props) {
   const [query, setQuery] = useState('')
   const [isPending, startTransition] = useTransition()
+
+  const locationMap = useMemo(
+    () => new Map(locations.map(l => [l.id, l.name])),
+    [locations]
+  )
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -191,7 +201,7 @@ export default function InventoryView({ products, error }: Props) {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {filtered.map(product => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard key={product.id} product={product} locationMap={locationMap} />
             ))}
           </div>
         )
