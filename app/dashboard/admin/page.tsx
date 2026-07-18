@@ -551,6 +551,13 @@ export default function AdminOrdersPage() {
         <div className="bg-gray-900 text-white rounded-xl px-4 py-3 mb-4 flex items-center gap-3 shadow-lg flex-wrap">
           <span className="text-sm font-medium flex-1">
             {selected.size} طلب محدد
+            {' · '}
+            <span className="text-pink-300 font-bold">
+              {orders
+                .filter(o => selected.has(o.id))
+                .reduce((sum, o) => sum + o.total, 0)
+                .toLocaleString('ar-EG')} ج.م
+            </span>
           </span>
           {/* Bulk status change */}
           <div className="relative">

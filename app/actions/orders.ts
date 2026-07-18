@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
+import { Resend } from 'resend'
 
 function adminClient() {
   return createSupabaseAdmin(
@@ -79,6 +80,60 @@ async function notifyAllAdmins(title: string, body: string) {
   await Promise.all(admins.map(a => sendPush(a.id, title, body)))
 }
 
+async function sendNewOrderEmail(params: {
+  orderNumber: string
+  customerName: string
+  address: string
+  total: number
+  products: string
+  createdByName: string
+  paymentMethod: string
+}) {
+  const apiKey = process.env.RESEND_API_KEY
+  const to = process.env.NOTIFICATION_EMAIL
+  if (!apiKey || !to) return
+
+  const resend = new Resend(apiKey)
+  const totalFormatted = params.total.toLocaleString('ar-EG')
+
+  await resend.emails.send({
+    from: 'Lady Fashion <onboarding@resend.dev>',
+    to,
+    subject: `طلب جديد #${params.orderNumber} — ${params.customerName} — ${totalFormatted} ج.م`,
+    html: `
+      <div dir="rtl" style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#f5f4f2;padding:24px;border-radius:12px">
+        <h2 style="color:#be185d;margin:0 0 16px">طلب جديد #${params.orderNumber}</h2>
+        <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden">
+          <tr style="border-bottom:1px solid #f0f0f0">
+            <td style="padding:10px 14px;color:#888;font-size:13px">العميل</td>
+            <td style="padding:10px 14px;font-weight:600;font-size:13px">${params.customerName}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f0f0f0">
+            <td style="padding:10px 14px;color:#888;font-size:13px">العنوان</td>
+            <td style="padding:10px 14px;font-size:13px">${params.address}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f0f0f0">
+            <td style="padding:10px 14px;color:#888;font-size:13px">المنتجات</td>
+            <td style="padding:10px 14px;font-size:13px;white-space:pre-wrap">${params.products}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f0f0f0">
+            <td style="padding:10px 14px;color:#888;font-size:13px">الإجمالي</td>
+            <td style="padding:10px 14px;font-weight:700;font-size:15px;color:#be185d">${totalFormatted} ج.م</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f0f0f0">
+            <td style="padding:10px 14px;color:#888;font-size:13px">الدفع</td>
+            <td style="padding:10px 14px;font-size:13px">${params.paymentMethod}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 14px;color:#888;font-size:13px">بواسطة</td>
+            <td style="padding:10px 14px;font-size:13px">${params.createdByName}</td>
+          </tr>
+        </table>
+      </div>
+    `,
+  }).catch(() => {})
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function getNextOrderNumber(prefix: string): Promise<string> {
@@ -138,11 +193,22 @@ export async function createOrder(payload: CreateOrderPayload) {
     userId: user.id, userName,
   })
 
-  const total = payload.total.toLocaleString('ar-EG')
-  await notifyAllAdmins(
-    `طلب جديد #${inserted.order_number}`,
-    `${payload.customer_name} · ${total} ج.م · بواسطة ${userName}`
-  )
+  const totalNum = payload.total
+  await Promise.all([
+    notifyAllAdmins(
+      `طلب جديد #${inserted.order_number}`,
+      `${payload.customer_name} · ${totalNum.toLocaleString('ar-EG')} ج.م · بواسطة ${userName}`
+    ),
+    sendNewOrderEmail({
+      orderNumber: inserted.order_number,
+      customerName: payload.customer_name,
+      address: payload.address,
+      total: totalNum,
+      products: payload.products,
+      createdByName: userName,
+      paymentMethod: payload.payment_method,
+    }),
+  ])
 
   revalidatePath('/dashboard/employee')
   return { success: true }
