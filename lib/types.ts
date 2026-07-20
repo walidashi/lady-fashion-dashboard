@@ -1,6 +1,6 @@
 export type Role = 'employee' | 'admin'
 
-export type OrderStatus = 'new' | 'preparing' | 'ready' | 'shipped' | 'delivered' | 'cancelled'
+export type OrderStatus = 'new' | 'preparing' | 'ready' | 'shipped' | 'returned' | 'delivered' | 'cancelled'
 
 export type OrderType = 'تسليم' | 'استرجاع' | 'استبدال'
 
@@ -58,6 +58,7 @@ export const STATUS_LABELS: Record<OrderStatus, string> = {
   preparing: 'جاري التجهيز',
   ready: 'جاهز',
   shipped: 'مشحون',
+  returned: 'مرتجع',
   delivered: 'تم التسليم',
   cancelled: 'ملغي',
 }
@@ -67,6 +68,7 @@ export const STATUS_COLORS: Record<OrderStatus, string> = {
   preparing: 'bg-orange-100 text-orange-800 border-orange-200',
   ready: 'bg-teal-100 text-teal-800 border-teal-200',
   shipped: 'bg-purple-100 text-purple-800 border-purple-200',
+  returned: 'bg-amber-100 text-amber-800 border-amber-200',
   delivered: 'bg-green-100 text-green-800 border-green-200',
   cancelled: 'bg-red-100 text-red-800 border-red-200',
 }

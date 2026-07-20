@@ -51,7 +51,7 @@ async function fetchOrderMeta(orderId: string) {
 
 const STATUS_LABELS_AR: Record<string, string> = {
   new: 'جديد', preparing: 'جاري التجهيز', ready: 'جاهز',
-  shipped: 'مشحون', delivered: 'تم التسليم', cancelled: 'ملغي',
+  shipped: 'مشحون', returned: 'مرتجع', delivered: 'تم التسليم', cancelled: 'ملغي',
 }
 
 async function sendPush(userId: string, title: string, body: string) {
@@ -328,6 +328,30 @@ export async function deliverOrder(orderId: string) {
   if (meta) {
     await logChange({ orderId, orderNumber: meta.order_number, fromStatus: meta.status, toStatus: 'delivered', userId: user.id, userName })
     await notifyOrderOwner({ createdBy: meta.created_by, orderNumber: meta.order_number, toStatus: 'delivered' })
+  }
+
+  revalidatePath('/dashboard/admin')
+  return { success: true }
+}
+
+export async function setOrderReturned(orderId: string, isReturned: boolean) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'غير مصرح' }
+
+  const [meta, userName] = await Promise.all([
+    fetchOrderMeta(orderId),
+    getActorName(supabase, user.id),
+  ])
+
+  const newStatus = isReturned ? 'returned' : 'shipped'
+  const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId)
+
+  if (error) return { error: error.message }
+
+  if (meta) {
+    await logChange({ orderId, orderNumber: meta.order_number, fromStatus: meta.status, toStatus: newStatus, userId: user.id, userName })
+    await notifyOrderOwner({ createdBy: meta.created_by, orderNumber: meta.order_number, toStatus: newStatus })
   }
 
   revalidatePath('/dashboard/admin')

@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Order, ShippingCompany, STATUS_LABELS, OrderStatus, OrderType, ORDER_TYPE_COLORS, OrderStatusLog } from '@/lib/types'
 import { generateShippingExcel } from '@/lib/excel'
 import { printLabels } from '@/lib/printLabels'
-import { acceptOrder, shipOrder, deliverOrder, cancelOrder, bulkUpdateStatus, bulkShipOrders, markOrderReady, setMigrated, revertOrdersSnapshot } from '@/app/actions/orders'
+import { acceptOrder, shipOrder, deliverOrder, cancelOrder, bulkUpdateStatus, bulkShipOrders, markOrderReady, setMigrated, setOrderReturned, revertOrdersSnapshot } from '@/app/actions/orders'
 import OrderStatusBadge from '@/components/OrderStatusBadge'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
@@ -19,6 +19,7 @@ const BULK_STATUS_OPTIONS: { value: string; label: string; color: string }[] = [
   { value: 'preparing', label: 'جاري التجهيز',   color: 'text-orange-700 hover:bg-orange-50' },
   { value: 'ready',     label: 'جاهز',            color: 'text-teal-700 hover:bg-teal-50' },
   { value: 'shipped',   label: 'مشحون',           color: 'text-purple-700 hover:bg-purple-50' },
+  { value: 'returned',  label: 'مرتجع',           color: 'text-amber-700 hover:bg-amber-50' },
   { value: 'delivered', label: 'تم التسليم',      color: 'text-green-700 hover:bg-green-50' },
   { value: 'cancelled', label: 'ملغي',            color: 'text-red-700 hover:bg-red-50' },
 ]
@@ -29,6 +30,7 @@ const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: 'preparing', label: 'جاري التجهيز' },
   { value: 'ready',     label: 'جاهز' },
   { value: 'shipped',   label: 'مشحون' },
+  { value: 'returned',  label: 'مرتجع' },
   { value: 'delivered', label: 'تم التسليم' },
   { value: 'cancelled', label: 'ملغي' },
 ]
@@ -233,6 +235,11 @@ export default function AdminOrdersPage() {
   const handleSetMigrated = async (orderId: string, value: boolean) => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, migrated: value } : o))
     await setMigrated(orderId, value)
+  }
+
+  const handleSetReturned = async (orderId: string, isReturned: boolean) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: isReturned ? 'returned' : 'shipped' } : o))
+    await setOrderReturned(orderId, isReturned)
   }
 
   const handleMarkReady = async (orderId: string) => {
@@ -667,6 +674,7 @@ export default function AdminOrdersPage() {
                   <th className="hidden lg:table-cell px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">التاريخ</th>
                   <th className="px-3 md:px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">الحالة</th>
                   <th className="hidden sm:table-cell px-3 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">ترحيل</th>
+                  <th className="hidden sm:table-cell px-3 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">مرتجع</th>
                   <th className="px-3 md:px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">إجراءات</th>
                 </tr>
               </thead>
@@ -710,13 +718,27 @@ export default function AdminOrdersPage() {
                       <OrderStatusBadge status={order.status} />
                     </td>
                     <td className="hidden sm:table-cell px-3 py-3 text-center">
-                      {order.status === 'ready' || order.status === 'shipped' || order.migrated ? (
+                      {order.status === 'ready' || order.status === 'shipped' || order.status === 'returned' || order.migrated ? (
                         <input
                           type="checkbox"
                           checked={!!order.migrated}
                           onChange={e => !isEmployee && handleSetMigrated(order.id, e.target.checked)}
                           title="تم الترحيل"
                           className={`w-4 h-4 rounded accent-teal-600 ${isEmployee ? 'cursor-default opacity-60' : 'cursor-pointer'}`}
+                          readOnly={isEmployee}
+                        />
+                      ) : (
+                        <span className="text-gray-200">—</span>
+                      )}
+                    </td>
+                    <td className="hidden sm:table-cell px-3 py-3 text-center">
+                      {order.status === 'shipped' || order.status === 'returned' ? (
+                        <input
+                          type="checkbox"
+                          checked={order.status === 'returned'}
+                          onChange={e => !isEmployee && handleSetReturned(order.id, e.target.checked)}
+                          title={order.status === 'returned' ? 'مرتجع من شركة الشحن' : 'لم يُرجع بعد'}
+                          className={`w-4 h-4 rounded accent-amber-600 ${isEmployee ? 'cursor-default opacity-60' : 'cursor-pointer'}`}
                           readOnly={isEmployee}
                         />
                       ) : (
@@ -1025,7 +1047,7 @@ export default function AdminOrdersPage() {
                   )}
                   <Row label="الموظف" value={modal.order.created_by_name} />
                   <Row label="تاريخ الإضافة" value={formatDate(modal.order.created_at)} />
-                  {(modal.order.status === 'ready' || modal.order.status === 'shipped' || modal.order.migrated) && (
+                  {(modal.order.status === 'ready' || modal.order.status === 'shipped' || modal.order.status === 'returned' || modal.order.migrated) && (
                     <Row label="تم الترحيل" value={
                       <input
                         type="checkbox"
@@ -1056,6 +1078,7 @@ export default function AdminOrdersPage() {
                                 log.to_status === 'preparing' ? 'bg-orange-400' :
                                 log.to_status === 'ready'     ? 'bg-teal-400' :
                                 log.to_status === 'shipped'   ? 'bg-purple-400' :
+                                log.to_status === 'returned'  ? 'bg-amber-400' :
                                 log.to_status === 'delivered' ? 'bg-green-400' :
                                 'bg-red-400'
                               }`} />
