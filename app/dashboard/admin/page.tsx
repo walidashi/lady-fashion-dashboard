@@ -732,12 +732,12 @@ export default function AdminOrdersPage() {
                       )}
                     </td>
                     <td className="hidden sm:table-cell px-3 py-3 text-center">
-                      {order.status === 'shipped' || order.status === 'returned' ? (
+                      {order.status === 'returned' ? (
                         <input
                           type="checkbox"
-                          checked={order.status === 'returned'}
+                          checked
                           onChange={e => !isEmployee && handleSetReturned(order.id, e.target.checked)}
-                          title={order.status === 'returned' ? 'مرتجع من شركة الشحن' : 'لم يُرجع بعد'}
+                          title="مرتجع من شركة الشحن"
                           className={`w-4 h-4 rounded accent-amber-600 ${isEmployee ? 'cursor-default opacity-60' : 'cursor-pointer'}`}
                           readOnly={isEmployee}
                         />
