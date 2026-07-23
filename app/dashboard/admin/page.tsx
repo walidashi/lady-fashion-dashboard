@@ -142,8 +142,14 @@ export default function AdminOrdersPage() {
     new: orders.filter((o) => o.status === 'new').length,
     preparing: orders.filter((o) => o.status === 'preparing').length,
     ready: orders.filter((o) => o.status === 'ready').length,
+    delivered: orders.filter((o) => o.status === 'delivered').length,
+    returned: orders.filter((o) => o.status === 'returned').length,
+    cancelled: orders.filter((o) => o.status === 'cancelled').length,
     total: orders.length,
   }
+  const resolved = stats.delivered + stats.returned + stats.cancelled
+  const deliveryRate = resolved > 0 ? Math.round((stats.delivered / resolved) * 100) : null
+  const returnRate  = resolved > 0 ? Math.round(((stats.returned + stats.cancelled) / resolved) * 100) : null
 
   // Shipping company breakdown — computed from loaded orders
   const companyStats = useMemo(() => {
@@ -384,7 +390,7 @@ export default function AdminOrdersPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-3">
         {[
           { label: 'إجمالي الطلبات', value: stats.total, icon: Package, color: 'text-gray-600', bg: 'bg-gray-100' },
           { label: 'جديد', value: stats.new, icon: Clock, color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -404,6 +410,32 @@ export default function AdminOrdersPage() {
           </div>
         ))}
       </div>
+      {deliveryRate !== null && (
+        <div className="grid grid-cols-2 gap-3 md:gap-4 mb-6">
+          <div className="bg-white rounded-xl p-4" style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center">
+                <CheckCircle className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-emerald-600">{deliveryRate}%</p>
+                <p className="text-xs text-gray-500">معدل التسليم <span className="text-gray-300">({stats.delivered}/{resolved})</span></p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl p-4" style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center">
+                <XCircle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-amber-600">{returnRate}%</p>
+                <p className="text-xs text-gray-500">معدل المرتجع <span className="text-gray-300">({stats.returned + stats.cancelled}/{resolved})</span></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Shipping company summaries */}
       {!isEmployee && companyStats.length > 0 && (
