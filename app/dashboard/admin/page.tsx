@@ -147,18 +147,19 @@ export default function AdminOrdersPage() {
 
   // Shipping company breakdown — computed from loaded orders
   const companyStats = useMemo(() => {
-    type CompanyStat = { id: string; name: string; shipped: number; delivered: number; cancelled: number; total: number; shippedValue: number }
+    type CompanyStat = { id: string; name: string; shipped: number; delivered: number; returned: number; cancelled: number; total: number; shippedValue: number }
     const map = new Map<string, CompanyStat>()
     for (const order of orders) {
       if (!order.shipping_company_id || !order.shipping_company_name) continue
       const prev = map.get(order.shipping_company_id) ?? {
         id: order.shipping_company_id,
         name: order.shipping_company_name,
-        shipped: 0, delivered: 0, cancelled: 0, total: 0, shippedValue: 0,
+        shipped: 0, delivered: 0, returned: 0, cancelled: 0, total: 0, shippedValue: 0,
       }
       prev.total++
       if (order.status === 'shipped')   { prev.shipped++; prev.shippedValue += Number(order.total) }
       if (order.status === 'delivered') prev.delivered++
+      if (order.status === 'returned')  prev.returned++
       if (order.status === 'cancelled') prev.cancelled++
       map.set(order.shipping_company_id, prev)
     }
@@ -436,6 +437,24 @@ export default function AdminOrdersPage() {
                     <p className="text-[10px] text-gray-400 mt-0.5">الإجمالي</p>
                   </div>
                 </div>
+                {(() => {
+                  const resolved = c.delivered + c.returned + c.cancelled
+                  if (resolved === 0) return null
+                  const deliveryRate = Math.round((c.delivered / resolved) * 100)
+                  const returnRate = Math.round(((c.returned + c.cancelled) / resolved) * 100)
+                  return (
+                    <div className="border-t border-gray-100 pt-2 grid grid-cols-2 gap-1 text-center">
+                      <div>
+                        <p className="text-sm font-bold text-emerald-600">{deliveryRate}%</p>
+                        <p className="text-[10px] text-gray-400">معدل التسليم</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-amber-600">{returnRate}%</p>
+                        <p className="text-[10px] text-gray-400">معدل المرتجع</p>
+                      </div>
+                    </div>
+                  )
+                })()}
                 {c.shipped > 0 && (
                   <div className="border-t border-gray-100 pt-2 text-center">
                     <p className="text-sm font-bold text-purple-700">{c.shippedValue.toLocaleString('ar-EG')} ج.م</p>
