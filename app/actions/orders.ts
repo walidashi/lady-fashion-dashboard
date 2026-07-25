@@ -334,26 +334,14 @@ export async function deliverOrder(orderId: string) {
   return { success: true }
 }
 
-export async function setOrderReturned(orderId: string, isReturned: boolean) {
+export async function setIsReturned(orderId: string, value: boolean) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'غير مصرح' }
 
-  const [meta, userName] = await Promise.all([
-    fetchOrderMeta(orderId),
-    getActorName(supabase, user.id),
-  ])
-
-  const newStatus = isReturned ? 'returned' : 'shipped'
-  const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId)
+  const { error } = await supabase.from('orders').update({ is_returned: value }).eq('id', orderId)
 
   if (error) return { error: error.message }
-
-  if (meta) {
-    await logChange({ orderId, orderNumber: meta.order_number, fromStatus: meta.status, toStatus: newStatus, userId: user.id, userName })
-    await notifyOrderOwner({ createdBy: meta.created_by, orderNumber: meta.order_number, toStatus: newStatus })
-  }
-
   revalidatePath('/dashboard/admin')
   return { success: true }
 }

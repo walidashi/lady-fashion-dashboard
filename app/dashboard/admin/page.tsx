@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Order, ShippingCompany, STATUS_LABELS, OrderStatus, OrderType, ORDER_TYPE_COLORS, OrderStatusLog } from '@/lib/types'
 import { generateShippingExcel } from '@/lib/excel'
 import { printLabels } from '@/lib/printLabels'
-import { acceptOrder, shipOrder, deliverOrder, cancelOrder, bulkUpdateStatus, bulkShipOrders, markOrderReady, setMigrated, setOrderReturned, revertOrdersSnapshot } from '@/app/actions/orders'
+import { acceptOrder, shipOrder, deliverOrder, cancelOrder, bulkUpdateStatus, bulkShipOrders, markOrderReady, setMigrated, setIsReturned, revertOrdersSnapshot } from '@/app/actions/orders'
 import OrderStatusBadge from '@/components/OrderStatusBadge'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
@@ -244,9 +244,9 @@ export default function AdminOrdersPage() {
     await setMigrated(orderId, value)
   }
 
-  const handleSetReturned = async (orderId: string, isReturned: boolean) => {
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: isReturned ? 'returned' : 'shipped' } : o))
-    await setOrderReturned(orderId, isReturned)
+  const handleSetIsReturned = async (orderId: string, value: boolean) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, is_returned: value } : o))
+    await setIsReturned(orderId, value)
   }
 
   const handleMarkReady = async (orderId: string) => {
@@ -783,12 +783,12 @@ export default function AdminOrdersPage() {
                       )}
                     </td>
                     <td className="hidden sm:table-cell px-3 py-3 text-center">
-                      {order.status === 'returned' ? (
+                      {order.status === 'shipped' || order.status === 'returned' || order.is_returned ? (
                         <input
                           type="checkbox"
-                          checked
-                          onChange={e => !isEmployee && handleSetReturned(order.id, e.target.checked)}
-                          title="مرتجع من شركة الشحن"
+                          checked={!!order.is_returned}
+                          onChange={e => !isEmployee && handleSetIsReturned(order.id, e.target.checked)}
+                          title="مرتجع"
                           className={`w-4 h-4 rounded accent-amber-600 ${isEmployee ? 'cursor-default opacity-60' : 'cursor-pointer'}`}
                           readOnly={isEmployee}
                         />
@@ -1105,6 +1105,16 @@ export default function AdminOrdersPage() {
                         checked={!!modal.order.migrated}
                         onChange={e => handleSetMigrated(modal.order!.id, e.target.checked)}
                         className="w-4 h-4 rounded cursor-pointer accent-teal-600"
+                      />
+                    } />
+                  )}
+                  {(modal.order.status === 'shipped' || modal.order.status === 'returned' || modal.order.is_returned) && (
+                    <Row label="مرتجع" value={
+                      <input
+                        type="checkbox"
+                        checked={!!modal.order.is_returned}
+                        onChange={e => handleSetIsReturned(modal.order!.id, e.target.checked)}
+                        className="w-4 h-4 rounded cursor-pointer accent-amber-600"
                       />
                     } />
                   )}
