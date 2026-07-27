@@ -4,6 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Lady Fashion — لوحة التحكم",
   description: "نظام إدارة طلبات Lady Fashion",
+  icons: { icon: '/logo.webp' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
