@@ -783,7 +783,7 @@ export default function AdminOrdersPage() {
                       )}
                     </td>
                     <td className="hidden sm:table-cell px-3 py-3 text-center">
-                      {order.status === 'shipped' || order.status === 'returned' || order.is_returned ? (
+                      {order.status === 'returned' || order.is_returned ? (
                         <input
                           type="checkbox"
                           checked={!!order.is_returned}
@@ -1108,7 +1108,7 @@ export default function AdminOrdersPage() {
                       />
                     } />
                   )}
-                  {(modal.order.status === 'shipped' || modal.order.status === 'returned' || modal.order.is_returned) && (
+                  {(modal.order.status === 'returned' || modal.order.is_returned) && (
                     <Row label="مرتجع" value={
                       <input
                         type="checkbox"
