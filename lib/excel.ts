@@ -5,6 +5,7 @@ export function generateShippingExcel(orders: Order[], filename?: string): void 
   const wb = XLSX.utils.book_new()
 
   const headers = [
+    'نوع الطلب',
     'حالة الاوردرات',
     'طريقة الدفع',
     'ملاحظات',
@@ -21,7 +22,8 @@ export function generateShippingExcel(orders: Order[], filename?: string): void 
     'رقم الاوردر',
   ]
 
-  const rows = orders.map((order, index) => [
+  const rows = orders.map((order) => [
+    order.order_type || 'تسليم',
     STATUS_LABELS[order.status] ?? order.status,
     order.payment_method,
     order.notes || '-',
@@ -41,6 +43,7 @@ export function generateShippingExcel(orders: Order[], filename?: string): void 
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
 
   ws['!cols'] = [
+    { wch: 14 },
     { wch: 18 },
     { wch: 22 },
     { wch: 22 },
