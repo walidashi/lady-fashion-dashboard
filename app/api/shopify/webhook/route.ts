@@ -66,8 +66,8 @@ function buildProducts(lineItems: ShopifyLineItem[]): { text: string; total: num
 
     // Parse color / size from variant_title (e.g. "Blue / Large")
     const parts = (item.variant_title ?? '').split(' / ')
-    const color = parts[0]?.trim() || '-'
-    const size  = parts[1]?.trim() || '-'
+    const size  = parts[0]?.trim() || '-'
+    const color = parts[1]?.trim() || '-'
 
     for (let i = 0; i < qty; i++) {
       blocks.push(
