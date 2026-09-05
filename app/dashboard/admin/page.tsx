@@ -100,11 +100,21 @@ export default function AdminOrdersPage() {
   const [bulkShipError, setBulkShipError] = useState('')
 
   const fetchOrders = useCallback(async () => {
-    const { data } = await supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false })
-    setOrders((data ?? []) as Order[])
+    const PAGE = 1000
+    let all: Order[] = []
+    let from = 0
+    while (true) {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, from + PAGE - 1)
+      if (error || !data || data.length === 0) break
+      all = [...all, ...(data as Order[])]
+      if (data.length < PAGE) break
+      from += PAGE
+    }
+    setOrders(all)
     setLoading(false)
   }, [supabase])
 
