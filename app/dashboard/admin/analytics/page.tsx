@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Order, STATUS_LABELS, STATUS_COLORS, OrderStatus, ORDER_TYPE_COLORS, OrderType } from '@/lib/types'
 import { formatCurrency } from '@/lib/utils'
+import { fetchAllOrders } from '@/lib/orders'
 import {
   TrendingUp, Package, Banknote, Clock, AlertCircle,
   ShoppingBag, RotateCcw, ArrowLeftRight, Leaf, Megaphone,
@@ -53,8 +54,7 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.from('orders').select('*').order('created_at', { ascending: false })
-      .then(({ data }) => { setOrders((data ?? []) as Order[]); setLoading(false) })
+    fetchAllOrders(supabase).then(all => { setOrders(all); setLoading(false) })
   }, [supabase])
 
   const total = orders.length

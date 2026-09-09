@@ -68,3 +68,83 @@ export function generateShippingExcel(orders: Order[], filename?: string): void 
   const date = new Date().toISOString().slice(0, 10)
   XLSX.writeFile(wb, filename ?? `LadyFashion_${date}.xlsx`)
 }
+
+// ── Period report export ─────────────────────────────────────────────────────
+
+export interface ReportPayload {
+  from: Date
+  to: Date
+  summary: {
+    count: number
+    grossValue: number
+    delivered: number
+    deliveredValue: number
+    returns: number
+    returnsValue: number
+    inTransit: number
+    successRate: number | null
+    returnRate: number | null
+    avgOrderValue: number
+    collected: number
+  }
+  couriers: { name: string; total: number; delivered: number; returns: number; successRate: number | null }[]
+  sources: { src: string; count: number; value: number; returnRate: number | null }[]
+  employees: { name: string; count: number; value: number; delivered: number }[]
+  products: [string, number][]
+}
+
+export function generateReportExcel(r: ReportPayload, filename?: string): void {
+  const wb = XLSX.utils.book_new()
+  const d = (x: Date) => x.toLocaleDateString('ar-EG')
+  const rate = (n: number | null) => (n == null ? '—' : `${n}%`)
+
+  const rows: (string | number)[][] = [
+    ['تقرير الفترة'],
+    ['من', d(r.from), 'إلى', d(r.to)],
+    [],
+    ['الملخص'],
+    ['إجمالي الطلبات', r.summary.count],
+    ['القيمة الإجمالية', r.summary.grossValue],
+    ['متوسط قيمة الطلب', r.summary.avgOrderValue],
+    ['إجمالي المحصل', r.summary.collected],
+    [],
+    ['معدل النجاح', rate(r.summary.successRate)],
+    ['الطلبات المسلّمة', r.summary.delivered],
+    ['قيمة المسلّم', r.summary.deliveredValue],
+    [],
+    ['معدل المرتجع', rate(r.summary.returnRate)],
+    ['الطلبات المرتجعة والملغاة', r.summary.returns],
+    ['قيمة المرتجع', r.summary.returnsValue],
+    [],
+    ['قيد التنفيذ', r.summary.inTransit],
+  ]
+
+  if (r.couriers.length) {
+    rows.push([], ['أداء شركات الشحن'], ['الشركة', 'الطلبات', 'مسلّم', 'مرتجع', 'المعدل'])
+    r.couriers.forEach(c => rows.push([c.name, c.total, c.delivered, c.returns, rate(c.successRate)]))
+  }
+
+  if (r.sources.length) {
+    rows.push([], ['حسب المصدر'], ['المصدر', 'الطلبات', 'القيمة', 'معدل المرتجع'])
+    r.sources.forEach(s => rows.push([s.src, s.count, s.value, rate(s.returnRate)]))
+  }
+
+  if (r.employees.length) {
+    rows.push([], ['أداء الموظفين'], ['الموظف', 'الطلبات', 'مسلّم', 'القيمة'])
+    r.employees.forEach(e => rows.push([e.name, e.count, e.delivered, e.value]))
+  }
+
+  if (r.products.length) {
+    rows.push([], ['أكثر المنتجات مبيعاً'], ['المنتج', 'عدد القطع'])
+    r.products.forEach(([name, count]) => rows.push([name, count]))
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(rows)
+  ws['!cols'] = [{ wch: 32 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }]
+  ws['!views'] = [{ rightToLeft: true }]
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Report')
+
+  const stamp = r.from.toISOString().slice(0, 10) + '_' + r.to.toISOString().slice(0, 10)
+  XLSX.writeFile(wb, filename ?? `LadyFashion_Report_${stamp}.xlsx`)
+}

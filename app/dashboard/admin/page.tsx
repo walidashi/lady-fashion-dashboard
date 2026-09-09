@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Order, ShippingCompany, STATUS_LABELS, OrderStatus, OrderType, ORDER_TYPE_COLORS, OrderStatusLog } from '@/lib/types'
+import { fetchAllOrders } from '@/lib/orders'
 import { generateShippingExcel } from '@/lib/excel'
 import { printLabels } from '@/lib/printLabels'
 import { acceptOrder, shipOrder, deliverOrder, cancelOrder, bulkUpdateStatus, bulkShipOrders, markOrderReady, setMigrated, setIsReturned, revertOrdersSnapshot } from '@/app/actions/orders'
@@ -100,21 +101,7 @@ export default function AdminOrdersPage() {
   const [bulkShipError, setBulkShipError] = useState('')
 
   const fetchOrders = useCallback(async () => {
-    const PAGE = 1000
-    let all: Order[] = []
-    let from = 0
-    while (true) {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .range(from, from + PAGE - 1)
-      if (error || !data || data.length === 0) break
-      all = [...all, ...(data as Order[])]
-      if (data.length < PAGE) break
-      from += PAGE
-    }
-    setOrders(all)
+    setOrders(await fetchAllOrders(supabase))
     setLoading(false)
   }, [supabase])
 
