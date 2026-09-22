@@ -11,6 +11,7 @@ import { InventoryProduct } from '@/lib/inventory'
 import { Plus, Trash2, ArrowRight, ShoppingBag, PenLine, Boxes } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import CustomerLookup from '@/components/CustomerLookup'
 
 const REGIONS = [
   { prefix: 'J', label: 'القاهرة والجيزة' },
@@ -334,6 +335,7 @@ export default function NewOrderForm({ inventoryProducts }: Props) {
   const orderType      = watch('order_type') as OrderType
   const selectedRegion = watch('region') as RegionPrefix | undefined
   const selectedSource = watch('source')
+  const mobileValue    = watch('mobile')
   const productList    = watch('products')
   const returnedList   = watch('returned_products') ?? []
   const productsTotal  = productList.reduce((sum, p) => sum + (Number(p.price) || 0), 0)
@@ -512,6 +514,13 @@ export default function NewOrderForm({ inventoryProducts }: Props) {
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">رقم الموبايل <span className="text-red-500">*</span></label>
                 <input {...register('mobile')} className="input-field" placeholder="01xxxxxxxxx" dir="ltr" />
                 {errors.mobile && <p className="error-text">{errors.mobile.message}</p>}
+                <CustomerLookup
+                  phone={mobileValue}
+                  onFill={(name, address) => {
+                    setValue('customer_name', name, { shouldValidate: true })
+                    setValue('address', address, { shouldValidate: true })
+                  }}
+                />
               </div>
             </div>
             <div>

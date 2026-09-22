@@ -47,6 +47,21 @@ export interface Order {
   updated_at: string
 }
 
+export interface Customer {
+  phone: string
+  name: string
+  address: string
+  total_orders: number
+  delivered_count: number
+  returned_count: number
+  cancelled_count: number
+  total_spent: number
+  first_order_at: string | null
+  last_order_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface ProductItem {
   name: string
   color: string
