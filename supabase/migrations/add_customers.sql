@@ -60,7 +60,7 @@ BEGIN
     cancelled_count, total_spent, first_order_at, last_order_at, updated_at
   )
   SELECT
-    p_phone, latest.customer_name, latest.address,
+    p_phone, COALESCE(latest.customer_name, ''), COALESCE(latest.address, ''),
     agg.total_orders, agg.delivered, agg.returned, agg.cancelled,
     agg.spent, agg.first_at, agg.last_at, NOW()
   FROM (
@@ -77,7 +77,7 @@ BEGIN
   CROSS JOIN LATERAL (
     SELECT customer_name, address FROM orders
     WHERE customer_phone = p_phone
-    ORDER BY created_at DESC LIMIT 1
+    ORDER BY created_at DESC NULLS LAST LIMIT 1
   ) latest
   ON CONFLICT (phone) DO UPDATE SET
     name            = EXCLUDED.name,
