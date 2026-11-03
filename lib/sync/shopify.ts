@@ -184,6 +184,30 @@ export async function listOrdersForMatching(fromIso: string, toIso: string): Pro
   return out
 }
 
+/**
+ * Email and city for Meta matching. Best-effort: these are protected customer
+ * fields, so if the app can't read them this returns nulls instead of failing.
+ */
+export async function getOrderContact(gid: string): Promise<{ email: string | null; city: string | null }> {
+  type R = { order: null | {
+    email: string | null
+    shippingAddress: { city: string | null } | null
+    billingAddress: { city: string | null } | null
+  } }
+  try {
+    const data = await gql<R>(`query($id: ID!) {
+      order(id: $id) { email shippingAddress { city } billingAddress { city } }
+    }`, { id: gid })
+    const o = data.order
+    return {
+      email: o?.email ?? null,
+      city: o?.shippingAddress?.city ?? o?.billingAddress?.city ?? null,
+    }
+  } catch {
+    return { email: null, city: null }
+  }
+}
+
 // ── Mutations ────────────────────────────────────────────────────────────────
 
 export async function fulfillFulfillmentOrder(fulfillmentOrderId: string): Promise<void> {

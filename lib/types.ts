@@ -42,6 +42,8 @@ export interface Order {
   shopify_customer_gid?: string | null
   delivered_at?: string | null
   refused_at?: string | null
+  customer_email?: string | null
+  customer_city?: string | null
   estimated_delivery: string | null
   shipping_company_id: string | null
   shipping_company_name: string | null

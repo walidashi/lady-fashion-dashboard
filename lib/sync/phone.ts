@@ -39,6 +39,32 @@ export function sha256(value: string): string {
   return createHash('sha256').update(value.trim().toLowerCase()).digest('hex')
 }
 
+/**
+ * Meta's rule for names and city: lowercase, no spaces or punctuation (names
+ * also drop digits; pass keepDigits for city).
+ * Keeps letters from any script (Arabic or Latin) and drops Arabic diacritics.
+ * "Asmaa" → "asmaa", "New Cairo" → "newcairo", "مُحمد" → "محمد".
+ */
+export function normalizeNameField(raw: string | null | undefined, keepDigits = false): string | null {
+  if (!raw) return null
+  const v = raw.normalize('NFKC').toLowerCase().replace(keepDigits ? /[^\p{L}\p{N}]/gu : /[^\p{L}]/gu, '')
+  return v.length >= 2 ? v : null
+}
+
+/** City keeps digits ("6th of October" → "6thofoctober"). */
+export const normalizeCity = (raw: string | null | undefined) => normalizeNameField(raw, true)
+
+/** "Asmaa Mohamed Saber" → { first: "asmaa", last: "saber" } */
+export function splitName(full: string | null | undefined): { first: string | null; last: string | null } {
+  const parts = (full ?? '').trim().split(/\s+/).map(p => normalizeNameField(p)).filter((p): p is string => !!p)
+  return { first: parts[0] ?? null, last: parts.length > 1 ? parts[parts.length - 1] : null }
+}
+
+export function normalizeEmail(raw: string | null | undefined): string | null {
+  const v = (raw ?? '').trim().toLowerCase()
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? v : null
+}
+
 /** gid://shopify/Order/123 → "123" */
 export function gidToId(gid: string | null | undefined): string | null {
   if (!gid) return null

@@ -25,7 +25,9 @@ interface ShopifyOrder {
   id?: number
   admin_graphql_api_id?: string
   name: string
-  customer?: { id?: number; admin_graphql_api_id?: string; first_name?: string; last_name?: string; phone?: string }
+  email?: string | null
+  contact_email?: string | null
+  customer?: { id?: number; admin_graphql_api_id?: string; first_name?: string; last_name?: string; phone?: string; email?: string | null }
   phone?: string
   shipping_address?: {
     name?: string
@@ -229,14 +231,25 @@ export async function POST(req: NextRequest) {
     created_by:            null,
     created_by_name:       'Shopify',
   }
-  let { data: inserted, error } = await admin.from('orders')
-    .insert({ ...baseRow, ...shopifyLink }).select('id, order_number').single()
+  // Email and city improve Meta match quality for this order later.
+  const contact = {
+    customer_email: shopifyOrder.email || shopifyOrder.contact_email || shopifyOrder.customer?.email || null,
+    customer_city:  addr?.city || null,
+  }
 
-  // Before add_shopify_meta_sync.sql is run the link columns don't exist yet;
-  // still import the order rather than lose it.
-  if (error?.code === '42703' || error?.code === 'PGRST204') {
-    ({ data: inserted, error } = await admin.from('orders')
-      .insert(baseRow).select('id, order_number').single())
+  // Try the fullest row first. If a migration hasn't been run yet, drop only
+  // the columns it adds, so the order is still imported (and still linked
+  // when only the contact columns are missing).
+  const attempts = [
+    { ...baseRow, ...shopifyLink, ...contact }, // all migrations run
+    { ...baseRow, ...shopifyLink },             // add_meta_match_fields.sql not run
+    baseRow,                                    // add_shopify_meta_sync.sql not run
+  ]
+  let inserted: { id: string; order_number: string } | null = null
+  let error: { code?: string; message: string } | null = null
+  for (const row of attempts) {
+    ;({ data: inserted, error } = await admin.from('orders').insert(row).select('id, order_number').single())
+    if (error?.code !== '42703' && error?.code !== 'PGRST204') break
   }
   // Another delivery of this webhook won the race to insert.
   if (error?.code === '23505' && shopifyGid) {

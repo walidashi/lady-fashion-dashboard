@@ -1,6 +1,6 @@
 // Meta Conversions API sender for the DeliveredPurchase event. Server-only.
 import { META_GRAPH_VERSION, META_MAX_EVENT_AGE_SECONDS, metaEnv } from './config'
-import { gidToId, normalizeEgPhone, sha256 } from './phone'
+import { gidToId, normalizeCity, normalizeEgPhone, normalizeEmail, sha256, splitName } from './phone'
 
 export class MetaError extends Error {}
 
@@ -9,6 +9,9 @@ export interface DeliveredEventInput {
   shopifyOrderName: string        // "#1234"
   shopifyCustomerGid: string | null
   phone: string | null            // as stored in the dashboard
+  customerName?: string | null    // full name; split into first/last
+  email?: string | null
+  city?: string | null
   amountCollected: number
   deliveredAt: Date
 }
@@ -32,13 +35,22 @@ export function buildDeliveredEvent(input: DeliveredEventInput, now = new Date()
 
   const phone = normalizeEgPhone(input.phone)
   const customerId = gidToId(input.shopifyCustomerGid)
-  if (!phone && !customerId) {
-    return { ok: false, skip: false, reason: 'No valid Egyptian mobile and no Shopify customer ID, so Meta has nothing to match on' }
+  const email = normalizeEmail(input.email)
+  // Name and city only help alongside a strong identifier, never on their own.
+  if (!phone && !customerId && !email) {
+    return { ok: false, skip: false, reason: 'No valid Egyptian mobile, email or Shopify customer ID, so Meta has nothing to match on' }
   }
+  const { first, last } = splitName(input.customerName)
+  const city = normalizeCity(input.city)
 
+  // Values are normalized first, then hashed; sha256() lowercases and trims.
   const userData: Record<string, string[]> = { country: [sha256('eg')] }
   if (phone) userData.ph = [sha256(phone)]
+  if (email) userData.em = [sha256(email)]
   if (customerId) userData.external_id = [sha256(customerId)]
+  if (first) userData.fn = [sha256(first)]
+  if (last) userData.ln = [sha256(last)]
+  if (city) userData.ct = [sha256(city)]
 
   const event = {
     event_name: 'DeliveredPurchase',

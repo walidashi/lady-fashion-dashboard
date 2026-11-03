@@ -38,6 +38,9 @@ interface OrderRow {
   status: string
   mobile: string
   total: number
+  customer_name: string | null
+  customer_email?: string | null
+  customer_city?: string | null
   shopify_order_gid: string | null
   shopify_order_name: string | null
   shopify_customer_gid: string | null
@@ -45,9 +48,6 @@ interface OrderRow {
   refused_at: string | null
   updated_at: string
 }
-
-const ORDER_COLS =
-  'id, order_number, status, mobile, total, shopify_order_gid, shopify_order_name, shopify_customer_gid, delivered_at, refused_at, updated_at'
 
 const isLinked = (o: Pick<OrderRow, 'shopify_order_gid' | 'shopify_order_name'>) =>
   !!(o.shopify_order_gid || o.shopify_order_name)
@@ -112,9 +112,14 @@ function describe(order: OrderRow, target: SyncTarget): string {
     shopifyOrderName: order.shopify_order_name ?? '?',
     shopifyCustomerGid: order.shopify_customer_gid,
     phone: order.mobile, amountCollected: Number(order.total), deliveredAt,
+    customerName: order.customer_name, email: order.customer_email, city: order.customer_city,
   })
   if (!built.ok) return `Would NOT send to Meta: ${built.reason}`
-  const linkNote = order.shopify_order_gid ? '' : ' (Shopify ID looked up first)'
+  const notes = [
+    order.shopify_order_gid ? null : 'Shopify ID looked up first',
+    order.customer_email && order.customer_city ? null : 'email/city added from Shopify if readable',
+  ].filter(Boolean)
+  const linkNote = notes.length ? ` (${notes.join('; ')})` : ''
   return `Would send DeliveredPurchase${linkNote}: ${built.summary} phone=${maskPhone(normalizeEgPhone(order.mobile))}`
 }
 
@@ -219,11 +224,22 @@ async function runMeta(db: SupabaseClient, order: OrderRow): Promise<[SyncState,
     if (!shopifyConfigured()) throw new Error('Order has only a Shopify number; Shopify must be configured to look up its ID first')
     await resolveGid(db, order)
   }
+  // Older orders and hand-entered ones don't have email/city stored yet.
+  if ((!order.customer_email || !order.customer_city) && shopifyConfigured()) {
+    const contact = await shopify.getOrderContact(order.shopify_order_gid!)
+    const patch: Record<string, string> = {}
+    if (!order.customer_email && contact.email) patch.customer_email = order.customer_email = contact.email
+    if (!order.customer_city && contact.city) patch.customer_city = order.customer_city = contact.city
+    if (Object.keys(patch).length) await db.from('orders').update(patch).eq('id', order.id)
+  }
   const built = buildDeliveredEvent({
     shopifyOrderGid: order.shopify_order_gid!,
     shopifyOrderName: order.shopify_order_name ?? '',
     shopifyCustomerGid: order.shopify_customer_gid,
     phone: order.mobile,
+    customerName: order.customer_name,
+    email: order.customer_email,
+    city: order.customer_city,
     amountCollected: Number(order.total),
     deliveredAt: new Date(order.delivered_at ?? order.updated_at),
   })
@@ -250,7 +266,7 @@ export interface RunResult { state: SyncState; message: string }
 /** Runs one target for one order. Safe to call any number of times. */
 export async function runTarget(orderId: string, target: SyncTarget): Promise<RunResult> {
   const db = adminDb()
-  const { data: order } = await db.from('orders').select(ORDER_COLS).eq('id', orderId).maybeSingle<OrderRow>()
+  const { data: order } = await db.from('orders').select('*').eq('id', orderId).maybeSingle<OrderRow>()
   if (!order) return { state: 'skipped', message: 'Order not found' }
 
   const { data: claimed, error: claimErr } = await db.rpc('claim_order_sync', { p_order_id: orderId, p_target: target })
