@@ -22,8 +22,10 @@ interface ShopifyLineItem {
 }
 
 interface ShopifyOrder {
+  id?: number
+  admin_graphql_api_id?: string
   name: string
-  customer?: { first_name?: string; last_name?: string; phone?: string }
+  customer?: { id?: number; admin_graphql_api_id?: string; first_name?: string; last_name?: string; phone?: string }
   phone?: string
   shipping_address?: {
     name?: string
@@ -181,12 +183,29 @@ export async function POST(req: NextRequest) {
   const total        = parseFloat(shopifyOrder.total_price) || (productsTotal + shippingCost)
   const notes        = shopifyOrder.note || '-'
 
-  // 6. Generate order number
+  // 6. Shopify link. Shopify retries webhooks, so skip orders already imported.
+  const admin = adminClient()
+  const shopifyGid = shopifyOrder.admin_graphql_api_id
+    ?? (shopifyOrder.id ? `gid://shopify/Order/${shopifyOrder.id}` : null)
+  const customerGid = shopifyOrder.customer?.admin_graphql_api_id
+    ?? (shopifyOrder.customer?.id ? `gid://shopify/Customer/${shopifyOrder.customer.id}` : null)
+
+  if (shopifyGid) {
+    const { data: existing } = await admin.from('orders')
+      .select('order_number').eq('shopify_order_gid', shopifyGid).maybeSingle()
+    if (existing) return Response.json({ ok: true, duplicate: true, order_number: existing.order_number })
+  }
+
+  // 7. Generate order number
   const orderNumber = await getNextOrderNumber('SH')
 
-  // 7. Insert into Supabase
-  const admin = adminClient()
-  const { data: inserted, error } = await admin.from('orders').insert({
+  // 8. Insert into Supabase
+  const shopifyLink = {
+    shopify_order_gid:    shopifyGid,
+    shopify_order_name:   shopifyOrder.name || null,
+    shopify_customer_gid: customerGid,
+  }
+  const baseRow = {
     order_number:          orderNumber,
     customer_name:         customerName,
     mobile,
@@ -209,12 +228,26 @@ export async function POST(req: NextRequest) {
     source:                'ممول',
     created_by:            null,
     created_by_name:       'Shopify',
-  }).select('id, order_number').single()
+  }
+  let { data: inserted, error } = await admin.from('orders')
+    .insert({ ...baseRow, ...shopifyLink }).select('id, order_number').single()
+
+  // Before add_shopify_meta_sync.sql is run the link columns don't exist yet;
+  // still import the order rather than lose it.
+  if (error?.code === '42703' || error?.code === 'PGRST204') {
+    ({ data: inserted, error } = await admin.from('orders')
+      .insert(baseRow).select('id, order_number').single())
+  }
+  // Another delivery of this webhook won the race to insert.
+  if (error?.code === '23505' && shopifyGid) {
+    return Response.json({ ok: true, duplicate: true })
+  }
 
   if (error) {
     console.error('Shopify webhook insert error:', error)
     return Response.json({ error: error.message }, { status: 500 })
   }
+  if (!inserted) return Response.json({ error: 'Insert returned no row' }, { status: 500 })
 
   // 8. Log status
   await admin.from('order_status_logs').insert({

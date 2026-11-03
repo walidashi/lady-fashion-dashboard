@@ -8,6 +8,7 @@ import { generateShippingExcel } from '@/lib/excel'
 import { printLabels } from '@/lib/printLabels'
 import { acceptOrder, shipOrder, deliverOrder, cancelOrder, bulkUpdateStatus, bulkShipOrders, markOrderReady, setMigrated, setIsReturned, revertOrdersSnapshot } from '@/app/actions/orders'
 import OrderStatusBadge from '@/components/OrderStatusBadge'
+import OrderSyncPanel from '@/components/OrderSyncPanel'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
 import {
@@ -90,7 +91,7 @@ export default function AdminOrdersPage() {
     if (!undoSnapshot) return
     if (undoTimer.current) clearTimeout(undoTimer.current)
     setUndoSnapshot(null)
-    await revertOrdersSnapshot(undoSnapshot.orders)
+    showSyncWarnings(await revertOrdersSnapshot(undoSnapshot.orders))
     fetchOrders()
   }
 
@@ -100,7 +101,15 @@ export default function AdminOrdersPage() {
   const [bulkShipLoading, setBulkShipLoading] = useState(false)
   const [bulkShipError, setBulkShipError] = useState('')
 
+  // Shopify/Meta can't follow some changes (e.g. un-cancelling); the server says which.
+  const showSyncWarnings = (res: { warnings?: string[] } | undefined) => {
+    if (res?.warnings?.length) alert(`تنبيه Shopify / Meta:\n\n${res.warnings.join('\n\n')}`)
+  }
+  const [syncErrorIds, setSyncErrorIds] = useState<Set<string>>(new Set())
+
   const fetchOrders = useCallback(async () => {
+    supabase.from('order_sync').select('order_id').eq('state', 'error')
+      .then(({ data }) => setSyncErrorIds(new Set((data ?? []).map(r => r.order_id))))
     setOrders(await fetchAllOrders(supabase))
     setLoading(false)
   }, [supabase])
@@ -214,6 +223,7 @@ export default function AdminOrdersPage() {
     if (!modal.order || !deliveryDate) return
     setActionLoading(true)
     const result = await acceptOrder(modal.order.id, deliveryDate)
+    showSyncWarnings(result)
     if (result.error) {
       setActionError(result.error)
     } else {
@@ -227,6 +237,7 @@ export default function AdminOrdersPage() {
     if (!modal.order || !selectedCompany) return
     setActionLoading(true)
     const result = await shipOrder(modal.order.id, selectedCompany.id, selectedCompany.name)
+    showSyncWarnings(result)
     if (result.error) {
       setActionError(result.error)
     } else {
@@ -248,19 +259,20 @@ export default function AdminOrdersPage() {
 
   const handleMarkReady = async (orderId: string) => {
     const result = await markOrderReady(orderId)
+    showSyncWarnings(result)
     if (result.error) { alert(result.error); return }
     fetchOrders()
   }
 
   const handleDeliver = async (orderId: string) => {
     if (!confirm('تأكيد: تم تسليم هذا الطلب؟')) return
-    await deliverOrder(orderId)
+    showSyncWarnings(await deliverOrder(orderId))
     fetchOrders()
   }
 
   const handleCancel = async (orderId: string) => {
     if (!confirm('تأكيد: إلغاء هذا الطلب؟')) return
-    await cancelOrder(orderId)
+    showSyncWarnings(await cancelOrder(orderId))
     fetchOrders()
   }
 
@@ -275,7 +287,7 @@ export default function AdminOrdersPage() {
     const label = BULK_STATUS_OPTIONS.find(o => o.value === status)?.label ?? status
     if (!confirm(`تغيير حالة ${selected.size} طلب إلى "${label}"؟`)) return
     saveUndo(`${selected.size} طلب → ${label}`)
-    await bulkUpdateStatus(Array.from(selected), status)
+    showSyncWarnings(await bulkUpdateStatus(Array.from(selected), status))
     setSelected(new Set())
     fetchOrders()
   }
@@ -286,6 +298,7 @@ export default function AdminOrdersPage() {
     setBulkShipError('')
     saveUndo(`${selected.size} طلب → مشحون (${bulkShipCompany.name})`)
     const result = await bulkShipOrders(Array.from(selected), bulkShipCompany.id, bulkShipCompany.name)
+    showSyncWarnings(result)
     setBulkShipLoading(false)
     if (result.error) { setBulkShipError(result.error); setUndoSnapshot(null); return }
     setBulkShipOpen(false)
@@ -763,7 +776,12 @@ export default function AdminOrdersPage() {
                     <td className="hidden lg:table-cell px-4 py-3 text-gray-500 whitespace-nowrap">{order.created_by_name}</td>
                     <td className="hidden lg:table-cell px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(order.created_at)}</td>
                     <td className="px-3 md:px-4 py-3">
-                      <OrderStatusBadge status={order.status} />
+                      <div className="flex items-center gap-1.5">
+                        <OrderStatusBadge status={order.status} />
+                        {syncErrorIds.has(order.id) && (
+                          <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" title="خطأ في مزامنة Shopify / Meta — افتح التفاصيل" />
+                        )}
+                      </div>
                     </td>
                     <td className="hidden sm:table-cell px-3 py-3 text-center">
                       {order.status === 'ready' || order.status === 'shipped' || order.status === 'returned' || order.migrated ? (
@@ -1115,6 +1133,8 @@ export default function AdminOrdersPage() {
                       />
                     } />
                   )}
+
+                  {!isEmployee && <OrderSyncPanel key={modal.order.id} order={modal.order} />}
 
                   {/* Status timeline */}
                   <div className="border-t border-gray-100 pt-4 mt-2">

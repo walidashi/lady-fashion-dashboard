@@ -52,6 +52,7 @@ const schema = z.object({
   amount_paid: z.coerce.number().min(0),
   payment_method: z.string().min(1),
   notes: z.string().default('-'),
+  shopify_order_name: z.string().optional(),
 }).superRefine((data, ctx) => {
   if (data.order_type === 'استبدال' && (!data.returned_products || data.returned_products.length === 0)) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'أضف منتجاً مرتجعاً على الأقل', path: ['returned_products'] })
@@ -363,6 +364,7 @@ export default function NewOrderForm({ inventoryProducts }: Props) {
       remaining,
       items_count:             data.products.length,
       notes:                   data.notes || '-',
+      shopify_order_name:      data.shopify_order_name || null,
       payment_method:          data.payment_method,
       source:                  data.source,
       order_type:              data.order_type,
@@ -685,6 +687,13 @@ export default function NewOrderForm({ inventoryProducts }: Props) {
         <div className="bg-white rounded-xl p-5" style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
           <h2 className="font-semibold text-gray-800 mb-4">ملاحظات</h2>
           <textarea {...register('notes')} rows={2} className="input-field resize-none" placeholder="أي ملاحظات إضافية..." />
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              رقم أوردر Shopify <span className="text-gray-400 font-normal">(اختياري)</span>
+            </label>
+            <input {...register('shopify_order_name')} className="input-field" placeholder="مثال: 1234" dir="ltr" />
+            <p className="text-xs text-gray-400 mt-1">لو الطلب ده متعمل على المتجر، اكتب رقمه عشان حالته تتحدث في Shopify تلقائياً.</p>
+          </div>
         </div>
 
         {serverError && (

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { Resend } from 'resend'
+import { afterStatusChange } from '@/lib/sync/engine'
 
 function adminClient() {
   return createSupabaseAdmin(
@@ -169,6 +170,31 @@ export interface CreateOrderPayload {
   order_type: string
   returned_products: string | null
   returned_products_total: number
+  /** Optional Shopify order number for hand-entered orders, e.g. "1234" or "#1234". */
+  shopify_order_name?: string | null
+}
+
+/** "1234" / "#1234" / " #1234 " → "#1234"; empty → null. */
+function normalizeShopifyName(raw: string | null | undefined): string | null {
+  const v = (raw ?? '').trim().replace(/^#+/, '').trim()
+  return v ? `#${v}` : null
+}
+
+/** Drops shopify_order_name when empty so the insert works without the column. */
+function withShopifyName(payload: CreateOrderPayload) {
+  const { shopify_order_name, ...rest } = payload
+  const name = normalizeShopifyName(shopify_order_name)
+  return name ? { ...rest, shopify_order_name: name } : rest
+}
+
+/** Never let a sync problem break a status change. */
+async function syncAfter(changes: Parameters<typeof afterStatusChange>[0]): Promise<string[]> {
+  try {
+    return await afterStatusChange(changes)
+  } catch (e) {
+    console.error('afterStatusChange failed', e instanceof Error ? e.message : e)
+    return []
+  }
 }
 
 export async function createOrder(payload: CreateOrderPayload) {
@@ -181,7 +207,7 @@ export async function createOrder(payload: CreateOrderPayload) {
 
   const { data: inserted, error } = await supabase
     .from('orders')
-    .insert({ ...payload, created_by: user.id, created_by_name: userName, status: 'new' })
+    .insert({ ...withShopifyName(payload), created_by: user.id, created_by_name: userName, status: 'new' })
     .select('id, order_number')
     .single()
 
@@ -219,7 +245,18 @@ export async function updateOrder(orderId: string, payload: CreateOrderPayload) 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'غير مصرح' }
 
-  const { error } = await supabase.from('orders').update(payload).eq('id', orderId)
+  const update: Record<string, unknown> = withShopifyName(payload)
+  if ('shopify_order_name' in payload) {
+    const name = normalizeShopifyName(payload.shopify_order_name)
+    const { data: current } = await adminClient().from('orders')
+      .select('shopify_order_name').eq('id', orderId).maybeSingle()
+    if (current && (current.shopify_order_name ?? null) !== name) {
+      // Number changed: forget the old link so the sync looks it up again.
+      Object.assign(update, { shopify_order_name: name, shopify_order_gid: null, shopify_customer_gid: null })
+    }
+  }
+
+  const { error } = await supabase.from('orders').update(update).eq('id', orderId)
 
   if (error) return { error: error.message }
   revalidatePath('/dashboard/employee')
@@ -249,8 +286,9 @@ export async function acceptOrder(orderId: string, estimatedDelivery: string) {
     await notifyOrderOwner({ createdBy: meta.created_by, orderNumber: meta.order_number, toStatus: 'preparing' })
   }
 
+  const warnings = await syncAfter([{ id: orderId, from: meta?.status ?? null, to: 'preparing' }])
   revalidatePath('/dashboard/admin')
-  return { success: true }
+  return { success: true, warnings }
 }
 
 export async function setMigrated(orderId: string, migrated: boolean) {
@@ -281,8 +319,9 @@ export async function markOrderReady(orderId: string) {
 
   if (meta) await logChange({ orderId, orderNumber: meta.order_number, fromStatus: meta.status, toStatus: 'ready', userId: user.id, userName })
 
+  const warnings = await syncAfter([{ id: orderId, from: meta?.status ?? null, to: 'ready' }])
   revalidatePath('/dashboard/admin')
-  return { success: true }
+  return { success: true, warnings }
 }
 
 export async function shipOrder(orderId: string, shippingCompanyId: string, shippingCompanyName: string) {
@@ -307,8 +346,9 @@ export async function shipOrder(orderId: string, shippingCompanyId: string, ship
     await notifyOrderOwner({ createdBy: meta.created_by, orderNumber: meta.order_number, toStatus: 'shipped', note: shippingCompanyName })
   }
 
+  const warnings = await syncAfter([{ id: orderId, from: meta?.status ?? null, to: 'shipped' }])
   revalidatePath('/dashboard/admin')
-  return { success: true }
+  return { success: true, warnings }
 }
 
 export async function deliverOrder(orderId: string) {
@@ -330,8 +370,9 @@ export async function deliverOrder(orderId: string) {
     await notifyOrderOwner({ createdBy: meta.created_by, orderNumber: meta.order_number, toStatus: 'delivered' })
   }
 
+  const warnings = await syncAfter([{ id: orderId, from: meta?.status ?? null, to: 'delivered' }])
   revalidatePath('/dashboard/admin')
-  return { success: true }
+  return { success: true, warnings }
 }
 
 export async function setIsReturned(orderId: string, value: boolean) {
@@ -365,9 +406,10 @@ export async function cancelOrder(orderId: string) {
     await notifyOrderOwner({ createdBy: meta.created_by, orderNumber: meta.order_number, toStatus: 'cancelled' })
   }
 
+  const warnings = await syncAfter([{ id: orderId, from: meta?.status ?? null, to: 'cancelled' }])
   revalidatePath('/dashboard/admin')
   revalidatePath('/dashboard/employee')
-  return { success: true }
+  return { success: true, warnings }
 }
 
 export interface ImportOrderRow {
@@ -444,8 +486,9 @@ export async function bulkShipOrders(orderIds: string[], companyId: string, comp
     )
   }
 
+  const warnings = await syncAfter((ordersData ?? []).map(o => ({ id: o.id, from: o.status, to: 'shipped' })))
   revalidatePath('/dashboard/admin')
-  return { success: true }
+  return { success: true, warnings }
 }
 
 export async function revertOrdersSnapshot(
@@ -484,8 +527,12 @@ export async function revertOrdersSnapshot(
     )
   }
 
+  const targetStatus = new Map(snapshots.map(s => [s.id, s.status]))
+  const warnings = await syncAfter((currentOrders ?? []).map(o => ({
+    id: o.id, from: o.status, to: targetStatus.get(o.id) ?? o.status,
+  })))
   revalidatePath('/dashboard/admin')
-  return { success: true }
+  return { success: true, warnings }
 }
 
 export async function bulkUpdateStatus(orderIds: string[], status: string) {
@@ -513,6 +560,7 @@ export async function bulkUpdateStatus(orderIds: string[], status: string) {
     )
   }
 
+  const warnings = await syncAfter((ordersData ?? []).map(o => ({ id: o.id, from: o.status, to: status })))
   revalidatePath('/dashboard/admin')
-  return { success: true }
+  return { success: true, warnings }
 }

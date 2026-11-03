@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useMemo } from 'react'
 import { Profile } from '@/lib/types'
 import { cn } from '@/lib/utils'
-import { Package, Plus, LogOut, LayoutDashboard, Settings, BarChart3, Boxes, History, FileBarChart, Users } from 'lucide-react'
+import { Package, Plus, LogOut, LayoutDashboard, Settings, BarChart3, Boxes, History, FileBarChart, Users, RefreshCcw } from 'lucide-react'
 import Image from 'next/image'
 
 interface Props {
@@ -29,6 +29,7 @@ const adminLinks = [
   { href: '/dashboard/admin/inventory', icon: Boxes, label: 'المخزون', exact: false },
   { href: '/dashboard/employee/new-order', icon: Plus, label: 'إضافة طلب', exact: false },
   { href: '/dashboard/admin/logs', icon: History, label: 'السجلات', exact: false },
+  { href: '/dashboard/admin/sync', icon: RefreshCcw, label: 'مزامنة Shopify / Meta', exact: false },
   { href: '/dashboard/admin/settings', icon: Settings, label: 'الإعدادات', exact: false },
 ]
 

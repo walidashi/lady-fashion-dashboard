@@ -37,6 +37,11 @@ export interface Order {
   returned_products_total: number
   migrated: boolean
   is_returned: boolean
+  shopify_order_gid?: string | null
+  shopify_order_name?: string | null
+  shopify_customer_gid?: string | null
+  delivered_at?: string | null
+  refused_at?: string | null
   estimated_delivery: string | null
   shipping_company_id: string | null
   shipping_company_name: string | null
@@ -136,4 +141,38 @@ export function parseProductItems(text: string | null | undefined): ProductItem[
     }
   }).filter(p => p.name)
   return parsed.length > 0 ? parsed : [{ name: '', color: '', size: '', price: 0 }]
+}
+
+export type SyncTarget = 'shopify_deliver' | 'shopify_cancel' | 'meta_delivered'
+export type SyncState = 'pending' | 'running' | 'done' | 'error' | 'skipped' | 'dry_run' | 'test'
+
+export interface OrderSyncRow {
+  id: string
+  order_id: string
+  target: SyncTarget
+  state: SyncState
+  message: string | null
+  attempts: number
+  updated_at: string
+}
+
+export const SYNC_TARGET_LABELS: Record<SyncTarget, string> = {
+  shopify_deliver: 'Shopify · تسليم ودفع',
+  shopify_cancel:  'Shopify · إلغاء',
+  meta_delivered:  'Meta · DeliveredPurchase',
+}
+
+export const SYNC_STATE_LABELS: Record<SyncState, string> = {
+  pending: 'قيد الانتظار', running: 'جاري التنفيذ', done: 'تم', error: 'خطأ',
+  skipped: 'تم التخطي', dry_run: 'تجربة فقط', test: 'تم (اختبار Meta)',
+}
+
+export const SYNC_STATE_COLORS: Record<SyncState, string> = {
+  pending: 'bg-blue-50 text-blue-700 border-blue-200',
+  running: 'bg-blue-50 text-blue-700 border-blue-200',
+  done:    'bg-emerald-50 text-emerald-700 border-emerald-200',
+  error:   'bg-red-50 text-red-700 border-red-200',
+  skipped: 'bg-gray-50 text-gray-500 border-gray-200',
+  dry_run: 'bg-violet-50 text-violet-700 border-violet-200',
+  test:    'bg-amber-50 text-amber-700 border-amber-200',
 }
