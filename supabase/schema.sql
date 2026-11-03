@@ -98,10 +98,9 @@ CREATE POLICY "admin updates profiles" ON public.profiles FOR UPDATE
   USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
 
 -- Orders
-CREATE POLICY "employees see own orders" ON public.orders FOR SELECT
+CREATE POLICY "staff read all orders" ON public.orders FOR SELECT
   USING (
-    auth.uid() = created_by OR
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('admin', 'employee'))
   );
 CREATE POLICY "employees insert orders" ON public.orders FOR INSERT
   WITH CHECK (auth.uid() = created_by);

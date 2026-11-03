@@ -1,6 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+/** Admin-area pages employees use (both are in their sidebar). */
+const EMPLOYEE_ALLOWED_ADMIN_PATHS = ['/dashboard/admin', '/dashboard/admin/inventory']
+
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -35,6 +38,16 @@ export async function proxy(request: NextRequest) {
 
   if (user && request.nextUrl.pathname === '/login') {
     return NextResponse.redirect(new URL('/dashboard', request.url))
+  }
+
+  // Employees can read every order, so admin-only pages (reports, analytics,
+  // customers, settings, sync…) must be gated by role, not just by login.
+  const path = request.nextUrl.pathname.replace(/\/+$/, '')
+  if (user && path.startsWith('/dashboard/admin') && !EMPLOYEE_ALLOWED_ADMIN_PATHS.includes(path)) {
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+    if (profile?.role !== 'admin') {
+      return NextResponse.redirect(new URL('/dashboard/employee', request.url))
+    }
   }
 
   return supabaseResponse
