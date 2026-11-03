@@ -5,9 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import { Order, OrderType, ORDER_TYPE_COLORS } from '@/lib/types'
 import OrderStatusBadge from '@/components/OrderStatusBadge'
 import Link from 'next/link'
-import { Plus, Package, Pencil, XCircle } from 'lucide-react'
+import { Plus, Package, Pencil, XCircle, PhoneCall } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import { cancelOrder } from '@/app/actions/orders'
+import { cancelOrder, confirmOrder } from '@/app/actions/orders'
 
 export default function EmployeeOrdersPage() {
   const supabase = useMemo(() => createClient(), [])
@@ -30,6 +30,13 @@ export default function EmployeeOrdersPage() {
         })
     })
   }, [supabase])
+
+  const handleConfirm = async (orderId: string) => {
+    if (!confirm('تأكيد: العميل أكّد الطلب؟')) return
+    const result = await confirmOrder(orderId)
+    if (result.error) { alert(result.error); return }
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'confirmed' as const } : o))
+  }
 
   const handleCancel = async (orderId: string) => {
     if (!confirm('تأكيد: إلغاء هذا الطلب؟')) return
@@ -127,6 +134,15 @@ export default function EmployeeOrdersPage() {
                         >
                           <Pencil className="w-4 h-4" />
                         </Link>
+                        {order.status === 'new' && (
+                          <button
+                            onClick={() => handleConfirm(order.id)}
+                            title="تأكيد مع العميل"
+                            className="p-1.5 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
+                          >
+                            <PhoneCall className="w-4 h-4" />
+                          </button>
+                        )}
                         {order.status !== 'delivered' && order.status !== 'cancelled' && order.status !== 'ready' && (
                           <button
                             onClick={() => handleCancel(order.id)}

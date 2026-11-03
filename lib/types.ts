@@ -1,6 +1,6 @@
 export type Role = 'employee' | 'admin'
 
-export type OrderStatus = 'new' | 'preparing' | 'ready' | 'shipped' | 'returned' | 'delivered' | 'cancelled'
+export type OrderStatus = 'new' | 'confirmed' | 'preparing' | 'ready' | 'shipped' | 'returned' | 'delivered' | 'cancelled'
 
 export type OrderType = 'تسليم' | 'استرجاع' | 'استبدال'
 
@@ -78,6 +78,7 @@ export interface ProductItem {
 
 export const STATUS_LABELS: Record<OrderStatus, string> = {
   new: 'جديد',
+  confirmed: 'مؤكد',
   preparing: 'جاري التجهيز',
   ready: 'جاهز',
   shipped: 'مشحون',
@@ -88,6 +89,7 @@ export const STATUS_LABELS: Record<OrderStatus, string> = {
 
 export const STATUS_COLORS: Record<OrderStatus, string> = {
   new: 'bg-blue-100 text-blue-800 border-blue-200',
+  confirmed: 'bg-indigo-100 text-indigo-800 border-indigo-200',
   preparing: 'bg-orange-100 text-orange-800 border-orange-200',
   ready: 'bg-teal-100 text-teal-800 border-teal-200',
   shipped: 'bg-purple-100 text-purple-800 border-purple-200',

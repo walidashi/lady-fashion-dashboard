@@ -51,7 +51,7 @@ async function fetchOrderMeta(orderId: string) {
 }
 
 const STATUS_LABELS_AR: Record<string, string> = {
-  new: 'جديد', preparing: 'جاري التجهيز', ready: 'جاهز',
+  new: 'جديد', confirmed: 'مؤكد', preparing: 'جاري التجهيز', ready: 'جاهز',
   shipped: 'مشحون', returned: 'مرتجع', delivered: 'تم التسليم', cancelled: 'ملغي',
 }
 
@@ -262,6 +262,43 @@ export async function updateOrder(orderId: string, payload: CreateOrderPayload) 
   revalidatePath('/dashboard/employee')
   revalidatePath('/dashboard/admin')
   return { success: true }
+}
+
+/**
+ * Marks a new order as confirmed with the customer. Employees and admins can
+ * both do this. Only admins may update orders under RLS, so after checking
+ * the caller's role and that they can see the order, the write goes through
+ * the service role — and only flips 'new' to 'confirmed', nothing else.
+ */
+export async function confirmOrder(orderId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'غير مصرح' }
+
+  const { data: profile } = await supabase.from('profiles').select('full_name, role').eq('id', user.id).single()
+  if (!profile || (profile.role !== 'admin' && profile.role !== 'employee')) return { error: 'غير مصرح' }
+
+  // Read through the user's own client: employees can only confirm orders they can see.
+  const { data: order } = await supabase.from('orders')
+    .select('id, order_number, status, created_by').eq('id', orderId).maybeSingle()
+  if (!order) return { error: 'الطلب غير موجود' }
+  if (order.status !== 'new') return { error: 'الطلب ده مش جديد، فمينفعش يتأكد' }
+
+  const { data: updated, error } = await adminClient().from('orders')
+    .update({ status: 'confirmed' }).eq('id', orderId).eq('status', 'new').select('id')
+  if (error) return { error: error.message }
+  if (!updated?.length) return { error: 'حالة الطلب اتغيرت، اعمل تحديث للصفحة' }
+
+  const userName = profile.full_name ?? ''
+  await logChange({ orderId, orderNumber: order.order_number, fromStatus: 'new', toStatus: 'confirmed', userId: user.id, userName })
+  if (order.created_by && order.created_by !== user.id) {
+    await notifyOrderOwner({ createdBy: order.created_by, orderNumber: order.order_number, toStatus: 'confirmed' })
+  }
+
+  const warnings = await syncAfter([{ id: orderId, from: 'new', to: 'confirmed' }])
+  revalidatePath('/dashboard/admin')
+  revalidatePath('/dashboard/employee')
+  return { success: true, warnings }
 }
 
 export async function acceptOrder(orderId: string, estimatedDelivery: string) {

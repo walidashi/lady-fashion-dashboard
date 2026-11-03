@@ -6,18 +6,19 @@ import { Order, ShippingCompany, STATUS_LABELS, OrderStatus, OrderType, ORDER_TY
 import { fetchAllOrders } from '@/lib/orders'
 import { generateShippingExcel } from '@/lib/excel'
 import { printLabels } from '@/lib/printLabels'
-import { acceptOrder, shipOrder, deliverOrder, cancelOrder, bulkUpdateStatus, bulkShipOrders, markOrderReady, setMigrated, setIsReturned, revertOrdersSnapshot } from '@/app/actions/orders'
+import { acceptOrder, shipOrder, deliverOrder, cancelOrder, bulkUpdateStatus, bulkShipOrders, markOrderReady, setMigrated, setIsReturned, revertOrdersSnapshot, confirmOrder } from '@/app/actions/orders'
 import OrderStatusBadge from '@/components/OrderStatusBadge'
 import OrderSyncPanel from '@/components/OrderSyncPanel'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
 import {
   FileDown, Search, Check, Truck, X, Eye,
-  Package, Clock, CheckCircle, XCircle, ChevronDown, Pencil, Printer, FileUp, PackageCheck,
+  Package, Clock, CheckCircle, XCircle, ChevronDown, Pencil, Printer, FileUp, PackageCheck, PhoneCall,
 } from 'lucide-react'
 
 const BULK_STATUS_OPTIONS: { value: string; label: string; color: string }[] = [
   { value: 'new',       label: 'جديد',           color: 'text-blue-700 hover:bg-blue-50' },
+  { value: 'confirmed', label: 'مؤكد',            color: 'text-indigo-700 hover:bg-indigo-50' },
   { value: 'preparing', label: 'جاري التجهيز',   color: 'text-orange-700 hover:bg-orange-50' },
   { value: 'ready',     label: 'جاهز',            color: 'text-teal-700 hover:bg-teal-50' },
   { value: 'shipped',   label: 'مشحون',           color: 'text-purple-700 hover:bg-purple-50' },
@@ -29,6 +30,7 @@ const BULK_STATUS_OPTIONS: { value: string; label: string; color: string }[] = [
 const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: 'all',       label: 'جميع الطلبات' },
   { value: 'new',       label: 'جديد' },
+  { value: 'confirmed', label: 'مؤكد' },
   { value: 'preparing', label: 'جاري التجهيز' },
   { value: 'ready',     label: 'جاهز' },
   { value: 'shipped',   label: 'مشحون' },
@@ -62,6 +64,8 @@ export default function AdminOrdersPage() {
   const [printMenuOpen, setPrintMenuOpen] = useState(false)
   const [bulkPrintMenuOpen, setBulkPrintMenuOpen] = useState(false)
   const [sourceFilter, setSourceFilter] = useState('all')
+  const [migratedFilter, setMigratedFilter] = useState<'all' | 'yes' | 'no'>('all')
+  const [returnedFilter, setReturnedFilter] = useState<'all' | 'yes' | 'no'>('all')
   const [orderTypeFilter, setOrderTypeFilter] = useState('all')
   const [companyFilter, setCompanyFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -137,15 +141,21 @@ export default function AdminOrdersPage() {
     const matchSource = sourceFilter === 'all' || o.source === sourceFilter
     const matchOrderType = orderTypeFilter === 'all' || o.order_type === orderTypeFilter
     const matchCompany = !companyFilter || o.shipping_company_id === companyFilter
+    const migratable = o.status === 'ready' || o.status === 'shipped' || o.status === 'returned'
+    const matchMigrated = migratedFilter === 'all'
+      || (migratedFilter === 'yes' ? !!o.migrated : migratable && !o.migrated)
+    const matchReturned = returnedFilter === 'all'
+      || (returnedFilter === 'yes' ? !!o.is_returned : o.status === 'returned' && !o.is_returned)
     const orderDate = new Date(o.created_at)
     const matchDateFrom = !dateFrom || orderDate >= new Date(dateFrom)
     const matchDateTo = !dateTo || orderDate <= new Date(dateTo + 'T23:59:59')
-    return matchStatus && matchSearch && matchSource && matchOrderType && matchCompany && matchDateFrom && matchDateTo
+    return matchStatus && matchSearch && matchSource && matchOrderType && matchCompany && matchMigrated && matchReturned && matchDateFrom && matchDateTo
   })
 
   // Stats
   const stats = {
     new: orders.filter((o) => o.status === 'new').length,
+    confirmed: orders.filter((o) => o.status === 'confirmed').length,
     preparing: orders.filter((o) => o.status === 'preparing').length,
     ready: orders.filter((o) => o.status === 'ready').length,
     delivered: orders.filter((o) => o.status === 'delivered').length,
@@ -255,6 +265,14 @@ export default function AdminOrdersPage() {
   const handleSetIsReturned = async (orderId: string, value: boolean) => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, is_returned: value } : o))
     await setIsReturned(orderId, value)
+  }
+
+  const handleConfirm = async (orderId: string) => {
+    if (!confirm('تأكيد: العميل أكّد الطلب؟')) return
+    const result = await confirmOrder(orderId)
+    if (result.error) { alert(result.error); return }
+    showSyncWarnings(result)
+    fetchOrders()
   }
 
   const handleMarkReady = async (orderId: string) => {
@@ -400,10 +418,11 @@ export default function AdminOrdersPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 mb-3">
         {[
           { label: 'إجمالي الطلبات', value: stats.total, icon: Package, color: 'text-gray-600', bg: 'bg-gray-100' },
           { label: 'جديد', value: stats.new, icon: Clock, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'مؤكد', value: stats.confirmed, icon: PhoneCall, color: 'text-indigo-600', bg: 'bg-indigo-50' },
           { label: 'جاري التجهيز', value: stats.preparing, icon: Truck, color: 'text-orange-600', bg: 'bg-orange-50' },
           { label: 'جاهز', value: stats.ready, icon: PackageCheck, color: 'text-teal-600', bg: 'bg-teal-50' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
@@ -579,6 +598,37 @@ export default function AdminOrdersPage() {
               </button>
             ))}
           </div>
+          {/* Migrated / returned checkbox filters */}
+          <div className="flex gap-1.5 items-center">
+            <span className="text-xs text-gray-400 whitespace-nowrap">الترحيل:</span>
+            {([{ value: 'all', label: 'الكل', hint: '' }, { value: 'yes', label: 'مترحل', hint: 'اتعلّم عليه تم الترحيل' }, { value: 'no', label: 'لسه', hint: 'جاهز أو مشحون أو مرتجع ولسه ماتعلّمش عليه تم الترحيل' }] as const).map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setMigratedFilter(opt.value)}
+                title={opt.hint}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  migratedFilter === opt.value ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1.5 items-center">
+            <span className="text-xs text-gray-400 whitespace-nowrap">المرتجع:</span>
+            {([{ value: 'all', label: 'الكل', hint: '' }, { value: 'yes', label: 'وصل', hint: 'اتعلّم عليه مرتجع (رجع من شركة الشحن)' }, { value: 'no', label: 'لسه', hint: 'حالته مرتجع ولسه مارجعش من شركة الشحن' }] as const).map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setReturnedFilter(opt.value)}
+                title={opt.hint}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  returnedFilter === opt.value ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
           {/* Company filter */}
           {companies.length > 0 && (
             <div className="flex gap-1.5 items-center">
@@ -603,9 +653,9 @@ export default function AdminOrdersPage() {
               className="text-xs rounded-md px-2 py-1 bg-gray-100 text-gray-700 border-0 focus:ring-1 focus:ring-pink-400 outline-none" />
           </div>
           {/* Clear filters */}
-          {(sourceFilter !== 'all' || orderTypeFilter !== 'all' || companyFilter || dateFrom || dateTo) && (
+          {(sourceFilter !== 'all' || orderTypeFilter !== 'all' || migratedFilter !== 'all' || returnedFilter !== 'all' || companyFilter || dateFrom || dateTo) && (
             <button
-              onClick={() => { setSourceFilter('all'); setOrderTypeFilter('all'); setCompanyFilter(''); setDateFrom(''); setDateTo('') }}
+              onClick={() => { setSourceFilter('all'); setOrderTypeFilter('all'); setMigratedFilter('all'); setReturnedFilter('all'); setCompanyFilter(''); setDateFrom(''); setDateTo('') }}
               className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors"
             >
               مسح الفلاتر
@@ -829,8 +879,14 @@ export default function AdminOrdersPage() {
                         >
                           <Pencil className="w-4 h-4" />
                         </Link>
+                        {/* Confirm with customer: employees and admins */}
+                        {order.status === 'new' && (
+                          <button onClick={() => handleConfirm(order.id)} title="تأكيد مع العميل" className="p-1.5 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors">
+                            <PhoneCall className="w-4 h-4" />
+                          </button>
+                        )}
                         {/* Admin-only status actions */}
-                        {!isEmployee && order.status === 'new' && (
+                        {!isEmployee && (order.status === 'new' || order.status === 'confirmed') && (
                           <button onClick={() => openModal('accept', order)} title="قبول الطلب" className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors">
                             <Check className="w-4 h-4" />
                           </button>
@@ -1153,6 +1209,7 @@ export default function AdminOrdersPage() {
                             <div className="flex flex-col items-center pt-0.5">
                               <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
                                 log.to_status === 'new'       ? 'bg-blue-400' :
+                                log.to_status === 'confirmed' ? 'bg-indigo-400' :
                                 log.to_status === 'preparing' ? 'bg-orange-400' :
                                 log.to_status === 'ready'     ? 'bg-teal-400' :
                                 log.to_status === 'shipped'   ? 'bg-purple-400' :

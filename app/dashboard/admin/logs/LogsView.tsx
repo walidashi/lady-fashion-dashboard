@@ -11,18 +11,22 @@ interface Props {
 
 const STATUS_DOT: Record<string, string> = {
   new:       'bg-blue-400',
+  confirmed: 'bg-indigo-400',
   preparing: 'bg-orange-400',
   ready:     'bg-teal-400',
   shipped:   'bg-purple-400',
+  returned:  'bg-amber-400',
   delivered: 'bg-green-400',
   cancelled: 'bg-red-400',
 }
 
 const STATUS_BADGE: Record<string, string> = {
   new:       'bg-blue-100 text-blue-700',
+  confirmed: 'bg-indigo-100 text-indigo-700',
   preparing: 'bg-orange-100 text-orange-700',
   ready:     'bg-teal-100 text-teal-700',
   shipped:   'bg-purple-100 text-purple-700',
+  returned:  'bg-amber-100 text-amber-700',
   delivered: 'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-700',
 }
@@ -95,7 +99,7 @@ export default function LogsView({ logs }: Props) {
         <div className="flex flex-wrap gap-2 items-center">
           {/* Status filter */}
           <div className="flex gap-1.5 flex-wrap">
-            {['', 'new', 'preparing', 'ready', 'shipped', 'delivered', 'cancelled'].map(s => (
+            {['', 'new', 'confirmed', 'preparing', 'ready', 'shipped', 'returned', 'delivered', 'cancelled'].map(s => (
               <button
                 key={s}
                 onClick={() => setStatusFilter(s)}
